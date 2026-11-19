@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { initialiserBase } from './db'
 import { Aujourdhui } from './ecrans/Aujourdhui'
 import { BientotDisponible } from './ecrans/BientotDisponible'
+import { Programme } from './ecrans/Programme'
 import { Reglages } from './ecrans/Reglages'
 
 type Onglet = 'aujourdhui' | 'programme' | 'stats' | 'reglages'
@@ -45,7 +46,7 @@ export default function App() {
     <div className="flex h-full flex-col">
       <main key={onglet} className="flex-1 overflow-y-auto px-4">
         {onglet === 'aujourdhui' && <Aujourdhui allerAuxReglages={() => setOnglet('reglages')} />}
-        {onglet === 'programme' && <BientotDisponible titre="Programme" />}
+        {onglet === 'programme' && <Programme />}
         {onglet === 'stats' && <BientotDisponible titre="Stats" />}
         {onglet === 'reglages' && <Reglages />}
       </main>
