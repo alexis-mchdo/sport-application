@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { BIBLIOTHEQUE } from './data/bibliotheque'
-import type { BilanSemaine, Exercice, ModePlanning, Programme, Reglage, SeanceRealisee } from './types'
+import { PROFIL_VIDE } from './logique/profil'
+import type { BilanSemaine, Exercice, ModePlanning, Profil, Programme, Reglage, SeanceRealisee } from './types'
 
 // Base locale (IndexedDB) — tout reste sur l'iPhone.
 export const db = new Dexie('muscu') as Dexie & {
@@ -51,4 +52,18 @@ export async function lireReglages(): Promise<Reglages> {
 
 export async function ecrireReglage<K extends keyof Reglages>(cle: K, valeur: Reglages[K]) {
   await db.reglages.put({ cle, valeur })
+}
+
+// Profil : stocké comme un réglage (donc inclus dans l'export)
+export async function lireProfil(): Promise<Profil> {
+  const ligne = await db.reglages.get('profil')
+  return { ...PROFIL_VIDE, ...(ligne?.valeur as Partial<Profil> | undefined) }
+}
+
+export async function modifierProfil(modifier: (p: Profil) => void) {
+  await db.transaction('rw', db.reglages, async () => {
+    const p = await lireProfil()
+    modifier(p)
+    await db.reglages.put({ cle: 'profil', valeur: p })
+  })
 }

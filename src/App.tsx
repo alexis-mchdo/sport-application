@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { initialiserBase } from './db'
 import { Aujourdhui } from './ecrans/Aujourdhui'
-import { BientotDisponible } from './ecrans/BientotDisponible'
+import { Profil } from './ecrans/Profil'
 import { Programme } from './ecrans/Programme'
 import { Reglages } from './ecrans/Reglages'
+import { Stats } from './ecrans/Stats'
 
-type Onglet = 'aujourdhui' | 'programme' | 'stats' | 'reglages'
+type Onglet = 'aujourdhui' | 'programme' | 'stats' | 'profil' | 'reglages'
 
 const ONGLETS: { id: Onglet; libelle: string; icone: React.ReactNode }[] = [
   {
@@ -22,6 +23,16 @@ const ONGLETS: { id: Onglet; libelle: string; icone: React.ReactNode }[] = [
     id: 'stats',
     libelle: 'Stats',
     icone: <path d="M3 3v18h18M7 15l4-4 3 3 5-6" />,
+  },
+  {
+    id: 'profil',
+    libelle: 'Profil',
+    icone: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </>
+    ),
   },
   {
     id: 'reglages',
@@ -45,9 +56,10 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <main key={onglet} className="flex-1 overflow-y-auto px-4">
-        {onglet === 'aujourdhui' && <Aujourdhui allerAuxReglages={() => setOnglet('reglages')} />}
+        {onglet === 'aujourdhui' && <Aujourdhui allerA={setOnglet} />}
         {onglet === 'programme' && <Programme />}
-        {onglet === 'stats' && <BientotDisponible titre="Stats" />}
+        {onglet === 'stats' && <Stats />}
+        {onglet === 'profil' && <Profil />}
         {onglet === 'reglages' && <Reglages />}
       </main>
 

@@ -1,6 +1,6 @@
 # Document de conception — App de musculation
 
-Statut : **brouillon à valider** — rien n'est codé tant que ce document n'est pas validé.
+Statut : **validé**, en cours de construction (étapes 1 à 4 faites). Les changements importants sont discutés avant d'être codés.
 
 ## 1. Objectif
 
@@ -19,7 +19,7 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 | Saisie | Objectifs pré-remplis, un tap = série validée, pas de RPE |
 | Minuteur de repos | **Aucun** (pas fiable sur Safari) |
 | Bibliothèque | Fournie (~80 exercices), extensible |
-| IA | Bouton « Copier pour Claude » (copier-coller dans l'app Claude), 0 € |
+| IA | V1 : bouton « Copier pour Claude ». Plus tard : IA gratuite branchée (voir §11), **pas un chatbot** |
 | Apparence | Thème sombre uniquement |
 | Planning | Au choix dans les réglages : **jour fixe** (par défaut) ou **ordre** du programme |
 | Poids de corps | Plus tard (hors V1) |
@@ -34,7 +34,7 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 - **Vitest** : tests des algorithmes (équilibre, progression)
 - **GitHub Actions** : chaque mise à jour du code est publiée automatiquement sur GitHub Pages
 
-## 4. Écrans (4 onglets)
+## 4. Écrans (5 onglets : Aujourd'hui, Programme, Stats, Profil, Réglages)
 
 ### 4.1 Aujourd'hui
 - Carte « Séance du jour » (ex. *Push A* — 5 exercices, ~60 min) + bouton **Commencer**.
@@ -45,9 +45,12 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 
 **Écran séance en cours :**
 - Un bloc par exercice ; chaque série est une pastille pré-remplie `8 × 80 kg`.
-- **Tap** → ✓ validée (verte). **Appui long** → boutons **– / +** pour les reps réellement faites (orange).
+- **Tap** → ✓ validée (verte), avec les reps et le poids prévus.
+- **Appui long** (ou tap sur une série déjà validée) → panneau **reps faites – / +** et **poids – / +** (orange si moins que prévu = échec).
+  Changer le poids propose de l'appliquer aux séries suivantes. Ces échecs alimentent le bilan de fin de semaine (§7).
+- « Dernière fois » affiché sous chaque exercice. Chaque tap est enregistré tout de suite (reprise possible si iOS ferme l'app).
 - Possibilité d'ajouter / retirer / remplacer un exercice pour cette séance seulement.
-- Bouton **Terminer** → enregistre dans l'historique.
+- Bouton **Terminer** → bilan (séries validées, charge totale, séries à surveiller) puis historique.
 
 ### 4.2 Programme
 - Programme actif : liste des séances (Push A, Pull A, Legs A…), chacune modifiable.
@@ -139,7 +142,34 @@ Chaque étape se termine par une version utilisable sur l'iPhone.
 6. **Stats** : courbes, records, volume, régularité.
 7. **Copier pour Claude**.
 
-## 10. Plus tard (hors V1)
+## 10. Profil
+
+Onglet dédié, rempli une fois puis mis à jour. Sert à l'IA (§11) : création du premier programme et ajustements.
+Enregistrement automatique, pourcentage de complétion, aperçu du texte envoyé à l'IA.
+
+- **Toi** : sexe, année de naissance, taille, poids.
+- **Expérience** : niveau, années de pratique.
+- **Objectif** principal + muscles à prioriser.
+- **Disponibilité** : séances / semaine, durée par séance, jours possibles.
+- **Matériel** : lieu, équipement disponible.
+- **Blessures et douleurs** : zone, côté, gravité, actuelle / ancienne, précision.
+- **Exercices** à éviter / préférés.
+- **Récupération** : sommeil, stress, activité quotidienne.
+- **Records** actuels (squat, développé couché, soulevé de terre, militaire, tractions).
+- **Notes** libres.
+
+## 11. IA (plus tard) — pas un chatbot
+
+L'IA ne discute pas : elle reçoit le profil + le programme + l'historique, et renvoie des **propositions structurées**
+que l'app affiche avec des boutons **[Accepter] [Refuser]**.
+
+1. **Créer mon premier programme** selon le profil (exercices pris dans la bibliothèque, poids de départ selon les records).
+2. **Bilan hebdo** : « tu peux monter sur X », « remplace Y à cause de ton épaule », « ajoute du volume sur Z ».
+3. **Adapter à une blessure** déclarée dans le profil.
+
+Piste : API gratuite (ex. Gemini, offre gratuite avec quotas ; les données peuvent servir à l'entraînement de leurs modèles).
+L'app vérifie toujours la réponse (exercices existants, règles d'équilibre §6) avant de proposer quoi que ce soit.
+
+## 12. Plus tard (hors V1)
 
 - Suivi du poids de corps.
-- Coach IA intégré via une API gratuite.
