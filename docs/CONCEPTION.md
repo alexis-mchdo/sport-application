@@ -1,6 +1,6 @@
 # Document de conception — App de musculation
 
-Statut : **validé**, en cours de construction (étapes 1 à 4 faites). Les changements importants sont discutés avant d'être codés.
+Statut : **validé**, en cours de construction (étapes 1 à 5 faites). Les changements importants sont discutés avant d'être codés.
 
 ## 1. Objectif
 
@@ -112,14 +112,22 @@ BilanSemaine    semaine (ex. 2026-W47), decisions[] (exerciceId, ancienPoids, no
    - Même muscle travaillé en principal deux jours d'affilée (selon les jours attribués ; en mode ordre, deux séances qui se suivent).
 4. Les suggestions d'exercices viennent de la bibliothèque (exercices dont le muscle visé est principal).
 
-## 7. Progression en fin de semaine (sans IA)
+## 7. Semaine d'entraînement et bilan (sans IA)
 
-Écran « Bilan de la semaine » proposé à la fin de la semaine (lundi = début de semaine), une ligne par exercice :
-- **Toutes les séries validées** → proposer `+incrementKg` (2,5 kg en polyarticulaire, 1 à 2 kg en isolation). **[Oui] [Non]**
-- **Quelques séries ratées** → garder le même poids. **[OK]**
-- **Ratée deux semaines de suite** → proposer −10 %. **[Oui] [Non]**
+La semaine est un **cycle numéroté (Semaine 1, 2, 3…) clôturé à la main**, pas la semaine du calendrier.
+- Pendant la semaine, **toutes les séances faites restent modifiables** (séries, reps, poids, ressenti, suppression).
+- Fin de séance : **ressenti** (😫 → 💪) et **douleurs** éventuelles (zones), en un tap.
+- L'écran Aujourd'hui propose le bilan quand toutes les séances sont faites, ou si une semaine du calendrier est passée ;
+  sinon un lien « Clôturer la semaine maintenant ».
 
-Les décisions mettent à jour les objectifs du programme.
+Écran « Bilan de la semaine » : séances / séries / charge, ressenti moyen, douleurs signalées, puis une ligne par exercice :
+- **Toutes les séries réussies** → `+incrementKg` (ou le poids plus lourd déjà réussi en séance) ; au poids du corps : +1 rep. **[Oui] [Non]**
+- **Séries ratées** (moins de reps ou poids baissé) **ou pas toutes faites** → on garde.
+- **Ratée deux semaines de suite** → −10 % arrondi au palier (au poids du corps : −1 rep). **[Oui] [Non]**
+- Emplacement « Conseils de l'IA » (§11).
+
+**Valider et passer à la semaine N+1** : les changements acceptés sont appliqués au programme, le bilan est enregistré,
+la nouvelle semaine repart à 0. Les semaines clôturées restent dans Stats, en lecture seule.
 
 ## 8. « Copier pour Claude »
 
@@ -160,8 +168,9 @@ Enregistrement automatique, pourcentage de complétion, aperçu du texte envoyé
 
 ## 11. IA (plus tard) — pas un chatbot
 
-L'IA ne discute pas : elle reçoit le profil + le programme + l'historique, et renvoie des **propositions structurées**
-que l'app affiche avec des boutons **[Accepter] [Refuser]**.
+L'IA ne discute pas et **on ne lui écrit jamais** : elle reçoit le profil (§10), le programme, l'historique et les
+**ressentis / douleurs** saisis en fin de séance, et renvoie des **propositions structurées** et de **courts conseils**
+que l'app affiche dans le bilan de la semaine, avec des boutons **[Accepter] [Refuser]**.
 
 1. **Créer mon premier programme** selon le profil (exercices pris dans la bibliothèque, poids de départ selon les records).
 2. **Bilan hebdo** : « tu peux monter sur X », « remplace Y à cause de ton épaule », « ajoute du volume sur Z ».

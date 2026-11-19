@@ -26,21 +26,50 @@ export async function synchroniserBibliotheque() {
   await db.exercices.bulkPut(BIBLIOTHEQUE)
 }
 
+/**
+ * Met les données au format actuel : crée la semaine d'entraînement si besoin
+ * et rattache à la semaine en cours les séances qui n'ont pas de numéro de semaine.
+ */
+export async function migrerDonnees() {
+  await db.transaction('rw', [db.reglages, db.seancesRealisees], async () => {
+    let semaine = (await db.reglages.get('semaine'))?.valeur as SemaineCourante | undefined
+    if (!semaine) {
+      const premiere = await db.seancesRealisees.orderBy('date').first()
+      semaine = { numero: 1, debut: premiere?.date ?? new Date().toISOString() }
+      await db.reglages.put({ cle: 'semaine', valeur: semaine })
+    }
+    const numero = semaine.numero
+    await db.seancesRealisees.filter((s) => s.semaine === undefined).modify((s) => {
+      s.semaine = numero
+    })
+  })
+}
+
 export async function initialiserBase() {
   await synchroniserBibliotheque()
+  await migrerDonnees()
   // Demande à Safari de ne pas effacer les données automatiquement.
   await navigator.storage?.persist?.().catch(() => false)
 }
 
 // Réglages typés
+export interface SemaineCourante {
+  numero: number
+  /** ISO 8601 */
+  debut: string
+}
+
 export interface Reglages {
   modePlanning: ModePlanning
+  /** Semaine d'entraînement en cours (créée au premier lancement) */
+  semaine: SemaineCourante
   /** ISO 8601 du dernier export, null si jamais exporté */
   dernierExport: string | null
 }
 
 export const REGLAGES_DEFAUT: Reglages = {
   modePlanning: 'jourFixe',
+  semaine: { numero: 1, debut: new Date(0).toISOString() },
   dernierExport: null,
 }
 

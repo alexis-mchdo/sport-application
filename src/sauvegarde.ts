@@ -1,4 +1,4 @@
-import { db, ecrireReglage, synchroniserBibliotheque } from './db'
+import { db, ecrireReglage, migrerDonnees, synchroniserBibliotheque } from './db'
 import type { BilanSemaine, Exercice, Programme, Reglage, SeanceRealisee } from './types'
 
 export const VERSION_SAUVEGARDE = 1
@@ -96,6 +96,7 @@ export async function importer(sauvegarde: Sauvegarde) {
     await db.reglages.bulkAdd(d.reglages)
   })
   await synchroniserBibliotheque()
+  await migrerDonnees()
 }
 
 export async function lireFichierSauvegarde(fichier: File): Promise<Sauvegarde> {

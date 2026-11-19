@@ -39,7 +39,20 @@ function PastilleSerie({ serie, numero, onTap, onAppuiLong }: { serie: Serie; nu
 
 type Edition = { exo: number; serie: number }
 
-export function SeanceEnCours({ id, fermer, apresFin }: { id: string; fermer: () => void; apresFin: (id: string) => void }) {
+/**
+ * Séance en cours, ou séance déjà terminée rouverte pour modification (`modeEdition`).
+ */
+export function SeanceEnCours({
+  id,
+  fermer,
+  apresFin,
+  modeEdition = false,
+}: {
+  id: string
+  fermer: () => void
+  apresFin?: (id: string) => void
+  modeEdition?: boolean
+}) {
   const seance = useLiveQuery(() => db.seancesRealisees.get(id), [id])
   const historique = useLiveQuery(() => db.seancesRealisees.toArray(), [])
   const exercices = useLiveQuery(() => db.exercices.toArray(), [])
@@ -94,7 +107,7 @@ export function SeanceEnCours({ id, fermer, apresFin }: { id: string; fermer: ()
     const restantes = toutes.length - faites
     if (restantes > 0 && !confirm(`${restantes} série${restantes > 1 ? 's' : ''} non validée${restantes > 1 ? 's' : ''}. Terminer quand même ?`)) return
     await terminerSeance(id)
-    apresFin(id)
+    apresFin?.(id)
   }
 
   const abandonner = async () => {
@@ -113,11 +126,19 @@ export function SeanceEnCours({ id, fermer, apresFin }: { id: string; fermer: ()
         titre={seance.nom}
         retour={fermer}
         action={
-          <button onClick={terminer} className="mb-1 shrink-0 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-fond">
-            Terminer
+          <button
+            onClick={modeEdition ? fermer : terminer}
+            className="mb-1 shrink-0 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-fond"
+          >
+            {modeEdition ? 'OK' : 'Terminer'}
           </button>
         }
       />
+      {modeEdition && (
+        <p className="mb-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+          Modification d'une séance terminée : chaque changement est enregistré.
+        </p>
+      )}
 
       <div className="h-1.5 overflow-hidden rounded-full bg-carte">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${toutes.length ? (faites / toutes.length) * 100 : 0}%` }} />
@@ -196,9 +217,11 @@ export function SeanceEnCours({ id, fermer, apresFin }: { id: string; fermer: ()
           rows={2}
           className="w-full rounded-2xl border border-bord bg-carte px-4 py-3 text-base outline-none placeholder:text-discret"
         />
-        <Bouton variante="danger" onClick={abandonner}>
-          Abandonner la séance
-        </Bouton>
+        {!modeEdition && (
+          <Bouton variante="danger" onClick={abandonner}>
+            Abandonner la séance
+          </Bouton>
+        )}
       </div>
 
       {edition && serieEditee && (

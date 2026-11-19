@@ -30,14 +30,15 @@ export type Proposition =
 
 /**
  * Séance proposée aujourd'hui.
+ * `semaine` = séances terminées de la semaine d'entraînement en cours (celle que l'utilisateur clôture par le bilan).
  * - Jour fixe : la séance attribuée à ce jour (la première pas encore faite aujourd'hui), sinon repos.
- * - Ordre : la première séance du programme pas encore faite cette semaine.
+ * - Ordre : la première séance du programme pas encore faite dans la semaine en cours.
  */
 export function seanceDuJour(
   programme: Programme,
   mode: ModePlanning,
   maintenant: Date,
-  terminees: SeanceRealisee[],
+  semaine: SeanceRealisee[],
 ): Proposition {
   if (programme.seances.length === 0) return { type: 'vide' }
 
@@ -46,11 +47,11 @@ export function seanceDuJour(
       .filter((s) => s.jourSemaine === jourIso(maintenant))
       .sort((a, b) => a.ordre - b.ordre)
     if (duJour.length === 0) return { type: 'repos' }
-    const faitesAujourdhui = new Set(terminees.filter((t) => memeJour(new Date(t.date), maintenant)).map((t) => t.seanceId))
+    const faitesAujourdhui = new Set(semaine.filter((t) => memeJour(new Date(t.date), maintenant)).map((t) => t.seanceId))
     return { type: 'seance', seance: duJour.find((s) => !faitesAujourdhui.has(s.id)) ?? duJour[0] }
   }
 
-  const faitesSemaine = new Set(terminees.filter((t) => dansLaSemaine(t.date, maintenant)).map((t) => t.seanceId))
+  const faitesSemaine = new Set(semaine.map((t) => t.seanceId))
   const suivante = [...programme.seances].sort((a, b) => a.ordre - b.ordre).find((s) => !faitesSemaine.has(s.id))
   return suivante ? { type: 'seance', seance: suivante } : { type: 'semaineTerminee' }
 }
@@ -65,10 +66,11 @@ export function seriesPrevues(p: ExoPrevu): Serie[] {
   }))
 }
 
-export function demarrerSeance(seance: Seance, maintenant: Date): SeanceRealisee {
+export function demarrerSeance(seance: Seance, maintenant: Date, semaine: number): SeanceRealisee {
   return {
     id: crypto.randomUUID(),
     date: maintenant.toISOString(),
+    semaine,
     seanceId: seance.id,
     nom: seance.nom,
     enCours: true,
@@ -101,7 +103,9 @@ export function formaterSeries(series: Serie[]) {
   if (faites.length === 0) return 'aucune série'
   const kg = (n: number) => n.toLocaleString('fr-FR')
   if (faites.every((s) => s.poidsKg === faites[0].poidsKg))
-    return `${faites.map((s) => s.repsFaites).join(' · ')} × ${kg(faites[0].poidsKg)} kg`
+    return faites[0].poidsKg > 0
+      ? `${faites.map((s) => s.repsFaites).join(' · ')} × ${kg(faites[0].poidsKg)} kg`
+      : `${faites.map((s) => s.repsFaites).join(' · ')} reps`
   return faites.map((s) => `${s.repsFaites} × ${kg(s.poidsKg)}`).join(' · ') + ' kg'
 }
 

@@ -1,8 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { supprimerRealisee } from '../actionsSeance'
-import { Bouton, Entete, Section } from '../composants/ui'
-import { db } from '../db'
+import { useState } from 'react'
+import { modifierRealisee, supprimerRealisee } from '../actionsSeance'
+import { Bouton, Entete, Puce, Section } from '../composants/ui'
+import { db, lireReglages } from '../db'
+import { RESSENTIS } from '../data/ressentis'
+import { NOM_ZONE } from '../logique/profil'
 import { bilanSeance, formaterSeries } from '../logique/seance'
+import type { ZoneCorps } from '../types'
+import { SeanceEnCours } from './SeanceEnCours'
+
 
 const dateLongue = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -10,9 +16,21 @@ const dateLongue = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { 
 export function DetailSeance({ id, retour, justeTerminee = false }: { id: string; retour: () => void; justeTerminee?: boolean }) {
   const seance = useLiveQuery(() => db.seancesRealisees.get(id), [id])
   const exercices = useLiveQuery(() => db.exercices.toArray(), [])
-  if (!seance || !exercices) return null
+  const reglages = useLiveQuery(lireReglages, [])
+  const [modification, setModification] = useState(false)
+  if (!seance || !exercices || !reglages) return null
+  if (modification) return <SeanceEnCours id={id} modeEdition fermer={() => setModification(false)} />
+
   const exos = new Map(exercices.map((e) => [e.id, e]))
   const b = bilanSeance(seance)
+  // Seules les séances de la semaine en cours sont modifiables ; les semaines clôturées sont figées.
+  const modifiable = seance.semaine === reglages.semaine.numero
+  const douleurs = seance.douleurs ?? []
+  const basculerDouleur = (z: ZoneCorps) =>
+    modifierRealisee(id, (s) => {
+      const d = s.douleurs ?? []
+      s.douleurs = d.includes(z) ? d.filter((x) => x !== z) : [...d, z]
+    })
 
   const supprimer = async () => {
     if (!confirm('Supprimer cette séance de l’historique ?')) return
@@ -44,6 +62,36 @@ export function DetailSeance({ id, retour, justeTerminee = false }: { id: string
         </div>
       </div>
 
+      <Section titre="Comment c'était ?" pied={modifiable ? "Ton ressenti servira au bilan de la semaine (et plus tard à l'IA)." : undefined}>
+        <div className="grid grid-cols-5 gap-1 p-2">
+          {RESSENTIS.map(([valeur, emoji, libelle]) => (
+            <button
+              key={valeur}
+              disabled={!modifiable}
+              onClick={() => modifierRealisee(id, (s) => (s.ressenti = s.ressenti === valeur ? undefined : valeur))}
+              className={`flex flex-col items-center rounded-xl py-2 ${seance.ressenti === valeur ? 'bg-accent/20 ring-1 ring-accent' : modifiable ? '' : 'opacity-40'}`}
+            >
+              <span className="text-2xl">{emoji}</span>
+              <span className="mt-1 text-[10px] text-discret">{libelle}</span>
+            </button>
+          ))}
+        </div>
+        {(modifiable || douleurs.length > 0) && (
+          <>
+            <p className="px-4 pt-3 text-sm text-discret">Une douleur ou une gêne ?</p>
+            <div className="flex flex-wrap gap-2 p-3">
+              {(Object.keys(NOM_ZONE) as ZoneCorps[])
+                .filter((z) => modifiable || douleurs.includes(z))
+                .map((z) => (
+                  <Puce key={z} actif={douleurs.includes(z)} onClick={() => modifiable && basculerDouleur(z)}>
+                    {NOM_ZONE[z]}
+                  </Puce>
+                ))}
+            </div>
+          </>
+        )}
+      </Section>
+
       {b.echecs.length > 0 && (
         <Section titre="À surveiller" pied="Ces séries seront prises en compte dans le bilan de fin de semaine pour ajuster tes charges.">
           {b.echecs.map((e, i) => (
@@ -74,13 +122,18 @@ export function DetailSeance({ id, retour, justeTerminee = false }: { id: string
       )}
 
       <div className="mt-6 space-y-3">
-        {justeTerminee ? (
-          <Bouton onClick={retour}>OK</Bouton>
-        ) : (
-          <Bouton variante="danger" onClick={supprimer}>
-            Supprimer de l'historique
+        {justeTerminee && <Bouton onClick={retour}>OK</Bouton>}
+        {modifiable && (
+          <Bouton variante="secondaire" onClick={() => setModification(true)}>
+            Modifier les séries
           </Bouton>
         )}
+        {!justeTerminee && modifiable && (
+          <Bouton variante="danger" onClick={supprimer}>
+            Supprimer la séance
+          </Bouton>
+        )}
+        {!modifiable && <p className="text-center text-xs text-discret">Semaine clôturée : séance en lecture seule.</p>}
       </div>
     </div>
   )

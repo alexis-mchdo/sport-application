@@ -40,8 +40,8 @@ describe('seanceDuJour', () => {
     expect(seanceDuJour(programme, 'jourFixe', new Date(2026, 10, 18), []).type).toBe('repos')
   })
 
-  it('ordre : la première séance pas encore faite cette semaine', () => {
-    const p = seanceDuJour(programme, 'ordre', jeudi, [faite('Push', new Date(2026, 10, 16)), faite('Legs', new Date(2026, 10, 9))])
+  it('ordre : la première séance pas encore faite dans la semaine en cours', () => {
+    const p = seanceDuJour(programme, 'ordre', jeudi, [faite('Push', new Date(2026, 10, 16))])
     expect(p.type === 'seance' && p.seance.id).toBe('Pull')
   })
 
@@ -53,8 +53,9 @@ describe('seanceDuJour', () => {
 
 describe('séance réalisée', () => {
   it('démarre avec les séries pré-remplies et non validées', () => {
-    const s = demarrerSeance(programme.seances[0], jeudi)
+    const s = demarrerSeance(programme.seances[0], jeudi, 3)
     expect(s.enCours).toBe(true)
+    expect(s.semaine).toBe(3)
     expect(s.exercices[0].series).toHaveLength(3)
     expect(s.exercices[0].series[0]).toEqual({ repsPrevues: 8, poidsPrevuKg: 100, poidsKg: 100, repsFaites: 8, validee: false })
   })
@@ -92,6 +93,7 @@ describe('séance réalisée', () => {
     expect(formaterSeries([s(8, 80), s(8, 80), s(6, 80)])).toBe('8 · 8 · 6 × 80 kg')
     expect(formaterSeries([s(8, 80), s(6, 72.5)])).toBe('8 × 80 · 6 × 72,5 kg')
     expect(formaterSeries([s(8, 80, false)])).toBe('aucune série')
+    expect(formaterSeries([s(12, 0), s(10, 0)])).toBe('12 · 10 reps')
   })
 
   it('dernière fois : la plus récente séance terminée contenant l’exercice', () => {

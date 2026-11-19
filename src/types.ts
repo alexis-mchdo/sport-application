@@ -81,19 +81,33 @@ export interface SeanceRealisee {
   note?: string
   /** true tant que la séance n'est pas terminée (reprise possible après fermeture de l'app) */
   enCours?: boolean
+  /** Numéro de la semaine d'entraînement (cycle clôturé à la main par le bilan) */
+  semaine?: number
+  /** Ressenti global : 1 = épuisé … 5 = au top */
+  ressenti?: number
+  /** Douleurs ou gênes ressenties pendant la séance */
+  douleurs?: ZoneCorps[]
   /** ISO 8601 de fin */
   fin?: string
 }
 
 export interface DecisionProgression {
+  seanceId: string
   exerciceId: string
   ancienPoids: number
   nouveauPoids: number
+  ancienReps: number
+  nouveauReps: number
 }
 
 export interface BilanSemaine {
-  /** ex. 2026-W47 */
+  /** Numéro de la semaine d'entraînement, en texte (clé) */
   semaine: string
+  /** ISO 8601 */
+  debut: string
+  /** ISO 8601 de clôture */
+  fin: string
+  /** Changements de charge acceptés */
   decisions: DecisionProgression[]
 }
 
