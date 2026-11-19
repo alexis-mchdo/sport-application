@@ -1,6 +1,6 @@
 # Document de conception — App de musculation
 
-Statut : **validé**, en cours de construction (étapes 1 à 5 faites). Les changements importants sont discutés avant d'être codés.
+Statut : **validé**, en cours de construction (étapes 1 à 5 faites + IA branchée). Les changements importants sont discutés avant d'être codés.
 
 ## 1. Objectif
 
@@ -19,7 +19,7 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 | Saisie | Objectifs pré-remplis, un tap = série validée, pas de RPE |
 | Minuteur de repos | **Aucun** (pas fiable sur Safari) |
 | Bibliothèque | Fournie (~80 exercices), extensible |
-| IA | V1 : bouton « Copier pour Claude ». Plus tard : IA gratuite branchée (voir §11), **pas un chatbot** |
+| IA | Gemini (clé gratuite Google, saisie dans Réglages), appelé depuis l'iPhone ; **pas un chatbot** (§11) |
 | Apparence | Thème sombre uniquement |
 | Planning | Au choix dans les réglages : **jour fixe** (par défaut) ou **ordre** du programme |
 | Poids de corps | Plus tard (hors V1) |
@@ -166,7 +166,7 @@ Enregistrement automatique, pourcentage de complétion, aperçu du texte envoyé
 - **Records** actuels (squat, développé couché, soulevé de terre, militaire, tractions).
 - **Notes** libres.
 
-## 11. IA (plus tard) — pas un chatbot
+## 11. IA — pas un chatbot
 
 L'IA ne discute pas et **on ne lui écrit jamais** : elle reçoit le profil (§10), le programme, l'historique et les
 **ressentis / douleurs** saisis en fin de séance, et renvoie des **propositions structurées** et de **courts conseils**
@@ -176,8 +176,24 @@ que l'app affiche dans le bilan de la semaine, avec des boutons **[Accepter] [Re
 2. **Bilan hebdo** : « tu peux monter sur X », « remplace Y à cause de ton épaule », « ajoute du volume sur Z ».
 3. **Adapter à une blessure** déclarée dans le profil.
 
-Piste : API gratuite (ex. Gemini, offre gratuite avec quotas ; les données peuvent servir à l'entraînement de leurs modèles).
-L'app vérifie toujours la réponse (exercices existants, règles d'équilibre §6) avant de proposer quoi que ce soit.
+**Branchement** : API Gemini (`gemini-flash-latest` par défaut, modifiable dans Réglages → IA), clé gratuite créée sur
+aistudio.google.com et collée dans Réglages. Appel direct depuis l'iPhone, déclenché par un bouton (jamais automatique).
+La clé reste sur l'appareil : exclue des exports, conservée lors d'un import.
+
+**Où** : Programme → Nouveau → « ✨ Créer avec l'IA » (aperçu + jauge d'équilibre avant de l'utiliser) ;
+Bilan de la semaine → « ✨ Analyser ma semaine » (conseils + propositions Oui / Non, appliquées à la clôture).
+
+**Alignement** :
+1. Instructions fixes (coach prudent, français, règles impératives) — `src/logique/ia.ts`.
+2. Réponse au format JSON imposé (schéma) : propositions `charge` / `remplacer` / `ajouter` / `retirer` + 3 conseils max.
+3. Contexte complet : profil, programme (séances codées S1, S2…), équilibre, 4 dernières semaines (séries, échecs,
+   ressentis, douleurs, notes), propositions des règles §7 (à ne pas répéter), refus récents, catalogue autorisé
+   (sans les exercices à éviter ni ceux hors matériel).
+4. Vérification par l'app de chaque proposition : exercice connu et autorisé, séance existante, +10 % de charge max,
+   ±3 reps / ±1 série, aucune hausse ni ajout sur une zone douloureuse, remplacement sur le même muscle,
+   aucun muscle qui deviendrait « manquant ». Les propositions écartées sont affichées avec leur raison.
+5. Rien n'est appliqué sans « Oui » (par défaut « Non ») ; les refus sont renvoyés à l'IA les semaines suivantes.
+6. Scénarios de test avec la vraie API : `GEMINI_API_KEY=… npm run eval:ia` → `scripts/eval-ia-rapport.md`.
 
 ## 12. Plus tard (hors V1)
 

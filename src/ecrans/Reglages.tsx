@@ -3,6 +3,8 @@ import { useRef, useState } from 'react'
 import { Bouton, Entete, Ligne, Section, Segmente } from '../composants/ui'
 import { db, ecrireReglage, lireReglages } from '../db'
 import { joursDepuis } from '../rappel'
+import { ErreurIA, testerConnexion } from '../ia/gemini'
+import { MODELE_IA_DEFAUT } from '../logique/ia'
 import { exporter, importer, lireFichierSauvegarde } from '../sauvegarde'
 import { Bibliotheque } from './Bibliotheque'
 
@@ -30,6 +32,30 @@ export function Reglages() {
       await exporter()
     } catch (e) {
       alert(`Export impossible : ${(e as Error).message}`)
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  const saisirCle = () => {
+    const cle = prompt('Colle ta clé API Gemini (aistudio.google.com → Get API key)', '')?.trim()
+    if (cle) ecrireReglage('cleIA', cle)
+  }
+  const supprimerCle = () => {
+    if (confirm("Supprimer la clé IA de cet iPhone ?")) ecrireReglage('cleIA', null)
+  }
+  const changerModele = () => {
+    const modele = prompt(`Modèle Gemini (par défaut : ${MODELE_IA_DEFAUT})`, reglages.modeleIA)?.trim()
+    if (modele !== undefined) ecrireReglage('modeleIA', modele || MODELE_IA_DEFAUT)
+  }
+  const tester = async () => {
+    if (!reglages.cleIA) return
+    setOccupe(true)
+    try {
+      await testerConnexion(reglages.cleIA, reglages.modeleIA)
+      alert("✓ L'IA répond correctement.")
+    } catch (e) {
+      alert(e instanceof ErreurIA ? e.message : `Erreur : ${(e as Error).message}`)
     } finally {
       setOccupe(false)
     }
@@ -80,6 +106,36 @@ export function Reglages() {
         <Ligne onClick={() => setSousEcran('bibliotheque')} chevron droite={nbExercices}>
           Bibliothèque
         </Ligne>
+      </Section>
+
+      <Section
+        titre="IA (Gemini, gratuit)"
+        pied={
+          reglages.cleIA
+            ? "Ta clé reste sur cet iPhone : elle n'est jamais exportée ni envoyée ailleurs qu'à Google."
+            : "Pour obtenir une clé gratuite : aistudio.google.com → connecte-toi avec ton compte Google → « Get API key » → « Create API key », puis copie-la ici."
+        }
+      >
+        <Ligne
+          onClick={saisirCle}
+          droite={reglages.cleIA ? <span className="text-accent">Configurée ✓</span> : 'Aucune'}
+          chevron
+        >
+          Clé API
+        </Ligne>
+        <Ligne onClick={changerModele} droite={<span className="text-xs">{reglages.modeleIA}</span>} chevron>
+          Modèle
+        </Ligne>
+        {reglages.cleIA && (
+          <div className="space-y-2 p-3">
+            <Bouton variante="secondaire" onClick={tester} disabled={occupe}>
+              Tester la connexion
+            </Bouton>
+            <Bouton variante="danger" onClick={supprimerCle}>
+              Supprimer la clé
+            </Bouton>
+          </div>
+        )}
       </Section>
 
       <Section

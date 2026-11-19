@@ -16,6 +16,7 @@ npm run build    # type-check (tsc -b) + production build into dist/
 npm run lint     # oxlint
 npm test         # vitest (all tests)
 npx vitest run src/rappel.test.ts   # a single test file
+GEMINI_API_KEY=… npm run eval:ia   # live AI scenarios (skipped without key) → scripts/eval-ia-rapport.md
 npm run icons    # regenerate favicon / PWA / apple-touch icons from public/logo.svg
 ```
 
@@ -31,9 +32,9 @@ npm run icons    # regenerate favicon / PWA / apple-touch icons from public/logo
 - Workouts: a `SeanceRealisee` with `enCours: true` is the in-progress session (only one at a time; `src/actionsSeance.ts`). Every tap writes to the DB immediately so iOS killing the PWA loses nothing. Each `Serie` keeps planned vs actual reps/weight; `statutSerie` (in `src/logique/seance.ts`) derives success/failure — the weekly progression (spec §7) will rely on it. Today's session choice is `seanceDuJour` (fixed weekday vs programme order).
 - **Training week ≠ calendar week**: `reglages.semaine = { numero, debut }` is a numbered cycle the user closes manually from the weekly bilan (`ecrans/BilanSemaine.tsx` → `cloturerSemaine` in `actionsSeance.ts`, which applies accepted load changes to the programme, stores a `BilanSemaine`, and opens week N+1). Every `SeanceRealisee` carries `semaine`; sessions of the current week stay editable (`SeanceEnCours` with `modeEdition`), closed weeks are read-only. Load-change rules live in `logique/progression.ts`. `migrerDonnees()` (run at start and after import) backfills `semaine` on old data.
 - Profile (spec §10) is stored as the `profil` row of the `reglages` table (`lireProfil` / `modifierProfil`), so it is exported with backups. `profilEnTexte` builds the text that the future AI will receive. The AI (spec §11) must return structured proposals the user accepts/refuses — it is explicitly **not a chatbot**.
-- Planned: Recharts for stats; the free AI plugs into the weekly bilan ("Conseils de l'IA" section).
+- Planned: Recharts for stats.
 - **Base path is `/sport-application/`** (GitHub Pages project site). Keep asset paths base-relative; `vite.config.ts` holds `BASE`.
 - Deployment: pushing to `main` runs `.github/workflows/deploy.yml` (lint → build → GitHub Pages). Repo is public; only code is published, never user data.
 - **Dark theme only.** Design for one-handed iPhone use: respect `env(safe-area-inset-*)`, big tap targets, minimal typing (tap to validate a set, long-press for +/−).
 - iOS Safari PWA limits shape the design: **no rest timer** (removed on purpose — unreliable in background), no vibration API. Data can be wiped with Safari data, so export/import JSON is a core feature.
-- No AI is wired in yet. Balance warnings and load progression are deterministic rules, not AI. The owner wants a **free** AI later (likely a free-tier API such as Gemini — never a paid one); until then "Copier pour Claude" only builds a text prompt to paste into the Claude app.
+- AI = Gemini free tier, called straight from the browser (`src/ia/gemini.ts`, REST `v1beta/models/{model}:generateContent`, JSON schema output). The owner refuses any paid service. Prompts, schemas and — most importantly — the safety validation of every AI answer live in `src/logique/ia.ts` (`verifierAnalyse`, `verifierProgrammeIA`): never apply AI output without going through them. The API key is the `cleIA` row of `reglages`, listed in `CLES_LOCALES` so backups never export it. Weekly analysis is cached in the `analyseIA` row until the week is closed; accepted/refused descriptions are stored on the `BilanSemaine` and fed back to the AI. Balance warnings and rule-based load progression stay deterministic (not AI).

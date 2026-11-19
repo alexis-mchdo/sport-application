@@ -1,4 +1,4 @@
-import { db, ecrireReglage, migrerDonnees, synchroniserBibliotheque } from './db'
+import { CLES_LOCALES, db, ecrireReglage, migrerDonnees, synchroniserBibliotheque } from './db'
 import type { BilanSemaine, Exercice, Programme, Reglage, SeanceRealisee } from './types'
 
 export const VERSION_SAUVEGARDE = 1
@@ -39,7 +39,7 @@ export async function creerSauvegarde(): Promise<Sauvegarde> {
     db.programmes.toArray(),
     db.seancesRealisees.toArray(),
     db.bilans.toArray(),
-    db.reglages.toArray(),
+    db.reglages.filter((r) => !CLES_LOCALES.includes(r.cle)).toArray(),
   ])
   return {
     app: 'muscu',
@@ -87,13 +87,15 @@ export async function exporter(): Promise<boolean> {
 /** Remplace toutes les données par celles de la sauvegarde. */
 export async function importer(sauvegarde: Sauvegarde) {
   const d = sauvegarde.donnees
+  const locales = await db.reglages.bulkGet(CLES_LOCALES)
   await db.transaction('rw', [db.exercices, db.programmes, db.seancesRealisees, db.bilans, db.reglages], async () => {
     await Promise.all(TABLES.map((t) => db[t].clear()))
     await db.exercices.bulkAdd(d.exercices)
     await db.programmes.bulkAdd(d.programmes)
     await db.seancesRealisees.bulkAdd(d.seancesRealisees)
     await db.bilans.bulkAdd(d.bilans)
-    await db.reglages.bulkAdd(d.reglages)
+    await db.reglages.bulkAdd(d.reglages.filter((r) => !CLES_LOCALES.includes(r.cle)))
+    await db.reglages.bulkPut(locales.filter((r) => r !== undefined))
   })
   await synchroniserBibliotheque()
   await migrerDonnees()

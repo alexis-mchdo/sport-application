@@ -1,9 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
+import { analyserSemaine, choisirPropositionIA, lireAnalyseSemaine } from '../actionsIA'
 import { cloturerSemaine } from '../actionsSeance'
 import { Bouton, Entete, Ligne, Section, Segmente } from '../composants/ui'
 import { RESSENTIS } from '../data/ressentis'
 import { db, lireReglages } from '../db'
+import { ErreurIA } from '../ia/gemini'
 import { NOM_ZONE } from '../logique/profil'
 import { proposerProgression, type Proposition } from '../logique/progression'
 import { bilanSeance } from '../logique/seance'
@@ -26,8 +28,12 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
   const reglages = useLiveQuery(lireReglages, [])
   const [refus, setRefus] = useState<Set<string>>(new Set())
   const [envoi, setEnvoi] = useState(false)
+  const analyseIA = useLiveQuery(lireAnalyseSemaine, [])
+  const [iaEnCours, setIaEnCours] = useState(false)
+  const [erreurIA, setErreurIA] = useState<string | null>(null)
+  const [voirRejets, setVoirRejets] = useState(false)
 
-  if (!programmes || !exercices || !realisees || !reglages) return null
+  if (!programmes || !exercices || !realisees || !reglages || analyseIA === undefined) return null
   const programme = programmes.find((p) => p.actif)
   const numero = reglages.semaine.numero
   const exos = new Map(exercices.map((e) => [e.id, e]))
@@ -47,6 +53,24 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
   const douleurs = new Map<ZoneCorps, number>()
   for (const s of cette) for (const z of s.douleurs ?? []) douleurs.set(z, (douleurs.get(z) ?? 0) + 1)
 
+  const propositionsIA = analyseIA?.analyse.propositions ?? []
+  const accepteesIA = propositionsIA.filter((p) => analyseIA?.acceptees.includes(p.id))
+  const refuseesIA = propositionsIA.filter((p) => !analyseIA?.acceptees.includes(p.id))
+  // Une proposition IA acceptée sur un exercice remplace la proposition de l'app pour cet exercice
+  const toucheParIA = new Set(accepteesIA.map((p) => `${p.seanceId}:${p.exerciceId}`))
+
+  const lancerAnalyse = async () => {
+    setIaEnCours(true)
+    setErreurIA(null)
+    try {
+      await analyserSemaine()
+    } catch (e) {
+      setErreurIA(e instanceof ErreurIA ? e.message : `Erreur : ${(e as Error).message}`)
+    } finally {
+      setIaEnCours(false)
+    }
+  }
+
   const valider = async () => {
     if (!programme) return
     const nonFaites = programme.seances.length - new Set(cette.map((s) => s.seanceId)).size
@@ -57,7 +81,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
     if (!confirm(message)) return
     setEnvoi(true)
     const decisions: DecisionProgression[] = changements
-      .filter((p) => !refus.has(cle(p)))
+      .filter((p) => !refus.has(cle(p)) && !toucheParIA.has(cle(p)))
       .map((p) => ({
         seanceId: p.seanceId,
         exerciceId: p.exerciceId,
@@ -66,7 +90,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
         ancienReps: p.avant.reps,
         nouveauReps: p.apres.reps,
       }))
-    await cloturerSemaine(programme, decisions)
+    await cloturerSemaine(programme, decisions, analyseIA ? { acceptees: accepteesIA, refusees: refuseesIA } : undefined)
     apresCloture()
   }
 
@@ -118,7 +142,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
                 {p.seanceNom} · {p.raison}
               </p>
             </div>
-            <div className="w-28 shrink-0">
+            <div className={`w-28 shrink-0 ${toucheParIA.has(cle(p)) ? 'opacity-30' : ''}`}>
               <Segmente
                 options={[
                   { valeur: 'oui', libelle: 'Oui' },
@@ -158,11 +182,81 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
         </p>
       )}
 
-      <Section titre="Conseils de l'IA">
-        <p className="px-4 py-4 text-sm text-discret">
-          Bientôt : l'IA analysera ta semaine (séries, ressentis, douleurs) et ton profil, puis proposera ici des ajustements à
-          accepter ou refuser.
-        </p>
+      <Section
+        titre="Analyse de l'IA"
+        pied={
+          analyseIA
+            ? "Rien n'est appliqué sans ton « Oui ». Tes refus sont mémorisés et renvoyés à l'IA la prochaine fois."
+            : undefined
+        }
+      >
+        {!reglages.cleIA && (
+          <p className="px-4 py-4 text-sm text-discret">
+            Ajoute ta clé gratuite dans Réglages → IA pour que l'IA analyse ta semaine (séries, ressentis, douleurs, profil).
+          </p>
+        )}
+
+        {reglages.cleIA && !analyseIA && (
+          <div className="space-y-2 p-3">
+            <Bouton onClick={lancerAnalyse} disabled={iaEnCours || cette.length === 0}>
+              {iaEnCours ? 'Analyse en cours…' : '✨ Analyser ma semaine'}
+            </Bouton>
+            {cette.length === 0 && <p className="text-center text-xs text-discret">Fais au moins une séance d'abord.</p>}
+            {erreurIA && <p className="text-sm text-red-400">{erreurIA}</p>}
+          </div>
+        )}
+
+        {analyseIA && (
+          <>
+            {analyseIA.analyse.conseils.map((c, i) => (
+              <p key={i} className="px-4 py-3 text-sm">
+                💡 {c}
+              </p>
+            ))}
+            {propositionsIA.length === 0 && (
+              <p className="px-4 py-3 text-sm text-discret">Aucun changement proposé : continue comme ça.</p>
+            )}
+            {propositionsIA.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{p.description}</p>
+                  <p className="text-xs text-discret">{p.raison}</p>
+                </div>
+                <div className="w-28 shrink-0">
+                  <Segmente
+                    options={[
+                      { valeur: 'oui', libelle: 'Oui' },
+                      { valeur: 'non', libelle: 'Non' },
+                    ]}
+                    valeur={analyseIA.acceptees.includes(p.id) ? 'oui' : 'non'}
+                    onChange={(v) => choisirPropositionIA(p.id, v === 'oui')}
+                  />
+                </div>
+              </div>
+            ))}
+            {analyseIA.analyse.rejets.length > 0 && (
+              <div className="px-4 py-3">
+                <button onClick={() => setVoirRejets(!voirRejets)} className="text-xs text-discret">
+                  {analyseIA.analyse.rejets.length} proposition{analyseIA.analyse.rejets.length > 1 ? 's' : ''} écartée
+                  {analyseIA.analyse.rejets.length > 1 ? 's' : ''} par l'app (règles de sécurité) {voirRejets ? '▲' : '▼'}
+                </button>
+                {voirRejets && (
+                  <ul className="mt-2 space-y-1 text-xs text-discret">
+                    {analyseIA.analyse.rejets.map((r, i) => (
+                      <li key={i}>• {r}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <div className="p-3">
+              <button onClick={lancerAnalyse} disabled={iaEnCours} className="w-full py-1 text-sm text-accent disabled:opacity-40">
+                {iaEnCours ? 'Analyse en cours…' : "Relancer l'analyse"}
+              </button>
+              {erreurIA && <p className="text-sm text-red-400">{erreurIA}</p>}
+            </div>
+          </>
+        )}
       </Section>
 
       <div className="mt-6">
