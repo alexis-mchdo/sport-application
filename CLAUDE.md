@@ -14,13 +14,19 @@ The full product spec, in French, is [docs/CONCEPTION.md](docs/CONCEPTION.md) �
 npm run dev      # dev server (http://localhost:5173/sport-application/)
 npm run build    # type-check (tsc -b) + production build into dist/
 npm run lint     # oxlint
+npm test         # vitest (all tests)
+npx vitest run src/rappel.test.ts   # a single test file
 npm run icons    # regenerate favicon / PWA / apple-touch icons from public/logo.svg
 ```
 
 ## Architecture & constraints
 
 - Vite + React 19 + TypeScript, Tailwind CSS v4 (via `@tailwindcss/vite`, theme tokens defined with `@theme` in `src/index.css`), `vite-plugin-pwa` (auto-update service worker, manifest in `vite.config.ts`).
-- Planned (per spec): Dexie for IndexedDB, Recharts for stats, Vitest for the pure algorithms (muscle balance, progression).
+- Data: Dexie over IndexedDB (`src/db.ts`), read reactively in screens with `useLiveQuery`. Types follow the spec model in `src/types.ts`. Settings are key/value rows (`lireReglages` / `ecrireReglage`).
+- Exercise library is code, not data: `src/data/bibliotheque.ts` is re-`bulkPut` into the DB on every start (`synchroniserBibliotheque`). **Never rename a built-in exercise id** — programmes and history reference them. User-created exercises have `perso: true` and ids prefixed `perso-`; only those are editable and only those are exported.
+- Backup (`src/sauvegarde.ts`): versioned JSON (`VERSION_SAUVEGARDE`); export goes through the iOS share sheet; import replaces all tables. When changing the data model, bump the version and handle older files on import.
+- Navigation is plain React state (tabs in `App.tsx`, sub-screens held by the parent screen) — no router. Screens live in `src/ecrans/`, shared UI primitives in `src/composants/ui.tsx`.
+- Keep business rules as pure functions with Vitest tests next to them (`*.test.ts`); planned: muscle balance, weekly progression. Recharts is planned for stats.
 - **Base path is `/sport-application/`** (GitHub Pages project site). Keep asset paths base-relative; `vite.config.ts` holds `BASE`.
 - Deployment: pushing to `main` runs `.github/workflows/deploy.yml` (lint → build → GitHub Pages). Repo is public; only code is published, never user data.
 - **Dark theme only.** Design for one-handed iPhone use: respect `env(safe-area-inset-*)`, big tap targets, minimal typing (tap to validate a set, long-press for +/−).

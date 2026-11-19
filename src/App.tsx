@@ -1,4 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { initialiserBase } from './db'
+import { Aujourdhui } from './ecrans/Aujourdhui'
+import { BientotDisponible } from './ecrans/BientotDisponible'
+import { Reglages } from './ecrans/Reglages'
 
 type Onglet = 'aujourdhui' | 'programme' | 'stats' | 'reglages'
 
@@ -32,15 +36,18 @@ const ONGLETS: { id: Onglet; libelle: string; icone: React.ReactNode }[] = [
 
 export default function App() {
   const [onglet, setOnglet] = useState<Onglet>('aujourdhui')
-  const actuel = ONGLETS.find((o) => o.id === onglet)!
+
+  useEffect(() => {
+    initialiserBase().catch((e) => console.error('Initialisation de la base impossible', e))
+  }, [])
 
   return (
     <div className="flex h-full flex-col">
-      <main className="flex-1 overflow-y-auto px-4 pt-[max(env(safe-area-inset-top),1rem)]">
-        <h1 className="mt-4 text-3xl font-bold">{actuel.libelle}</h1>
-        <div className="mt-6 rounded-2xl border border-bord bg-carte p-5 text-discret">
-          Bientôt disponible.
-        </div>
+      <main key={onglet} className="flex-1 overflow-y-auto px-4">
+        {onglet === 'aujourdhui' && <Aujourdhui allerAuxReglages={() => setOnglet('reglages')} />}
+        {onglet === 'programme' && <BientotDisponible titre="Programme" />}
+        {onglet === 'stats' && <BientotDisponible titre="Stats" />}
+        {onglet === 'reglages' && <Reglages />}
       </main>
 
       <nav className="flex border-t border-bord bg-carte/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
