@@ -1,12 +1,13 @@
 // Scénarios de test de l'IA avec la VRAIE API Gemini (pas lancés par `npm test` sans clé).
 // Lancement :  GEMINI_API_KEY=ta_cle npm run eval:ia
-// Rapport écrit dans scripts/eval-ia-rapport.md (ignoré par git).
+// Réflexion réduite : GEMINI_REFLEXION=LOW GEMINI_API_KEY=ta_cle npm run eval:ia
+// Rapport écrit dans scripts/eval-ia-rapport-<mode>.md (ignoré par git).
 import { appendFileSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BIBLIOTHEQUE } from '../src/data/bibliotheque'
 import { NOM_MUSCLE } from '../src/data/muscles'
 import { MODELES, creerProgrammeDepuisModele } from '../src/data/modeles'
-import { appelerGemini } from '../src/ia/gemini'
+import { appelerGemini, type NiveauReflexion } from '../src/ia/gemini'
 import { alertes, indexer } from '../src/logique/equilibre'
 import {
   INSTRUCTIONS_BILAN,
@@ -29,7 +30,9 @@ import type { Profil, Programme, SeanceRealisee } from '../src/types'
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {}
 const CLE = env.GEMINI_API_KEY
 const MODELE = env.GEMINI_MODELE ?? MODELE_IA_DEFAUT
-const RAPPORT = 'scripts/eval-ia-rapport.md'
+const REFLEXION = env.GEMINI_REFLEXION as NiveauReflexion | undefined
+const RAPPORT = `scripts/eval-ia-rapport-${REFLEXION ? REFLEXION.toLowerCase() : 'normale'}.md`
+let totalSecondes = 0
 const exos = indexer(BIBLIOTHEQUE)
 const ecrire = (t: string) => appendFileSync(RAPPORT, `${t}\n`)
 
@@ -38,7 +41,9 @@ async function appelerOuNoter(nom: string, appel: () => Promise<unknown>): Promi
   const debut = Date.now()
   try {
     const brut = await appel()
-    return { brut, secondes: Math.round((Date.now() - debut) / 1000) }
+    const secondes = Math.round((Date.now() - debut) / 1000)
+    totalSecondes += secondes
+    return { brut, secondes }
   } catch (e) {
     ecrire(`\n## ${nom}\n❌ **Erreur après ${Math.round((Date.now() - debut) / 1000)} s** : ${(e as Error).message}`)
     throw e
@@ -130,7 +135,7 @@ async function bilan(nom: string, profil: Profil, p: Programme, historique: Sean
     refusRecents: [],
   })
   const { brut, secondes } = await appelerOuNoter(nom, () =>
-    appelerGemini({ cle: CLE!, modele: MODELE, instructions: INSTRUCTIONS_BILAN, contexte, schema: SCHEMA_BILAN }),
+    appelerGemini({ cle: CLE!, modele: MODELE, reflexion: REFLEXION, instructions: INSTRUCTIONS_BILAN, contexte, schema: SCHEMA_BILAN }),
   )
   const a = verifierAnalyse(brut, p, BIBLIOTHEQUE, profil)
   ecrire(`\n## ${nom}\n_${secondes} s · contexte ${contexte.length} caractères_\n`)
@@ -145,6 +150,7 @@ async function creation(nom: string, profil: Profil, nb: number) {
     appelerGemini({
       cle: CLE!,
       modele: MODELE,
+      reflexion: REFLEXION,
       instructions: INSTRUCTIONS_CREATION,
       contexte: contexteCreation(profil, BIBLIOTHEQUE, nb),
       schema: SCHEMA_PROGRAMME,
@@ -165,7 +171,10 @@ async function creation(nom: string, profil: Profil, nb: number) {
 
 describe.skipIf(!CLE)(`Scénarios IA réels (${MODELE})`, { timeout: 300_000 }, () => {
   it('prépare le rapport', () => {
-    writeFileSync(RAPPORT, `# Rapport de test de l'IA\n\nModèle : \`${MODELE}\` · ${new Date().toLocaleString('fr-FR')}\n`)
+    writeFileSync(
+      RAPPORT,
+      `# Rapport de test de l'IA\n\nModèle : \`${MODELE}\` · réflexion : ${REFLEXION ?? 'normale'} · ${new Date().toLocaleString('fr-FR')}\n`,
+    )
   })
 
   it('1. Création : intermédiaire, salle complète, 4 séances', async () => {
@@ -239,5 +248,9 @@ describe.skipIf(!CLE)(`Scénarios IA réels (${MODELE})`, { timeout: 300_000 }, 
       [...semaine(p, 4, { ressenti: 2, echec }), ...semaine(p, 5, { ressenti: 2, echec, note: 'Crevé cette semaine' })],
       5,
     )
+  })
+
+  it('résumé', () => {
+    ecrire(`\n---\n**Durée totale des appels réussis : ${totalSecondes} s**`)
   })
 })

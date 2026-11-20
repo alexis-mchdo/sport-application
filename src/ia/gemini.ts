@@ -3,6 +3,9 @@
 
 export class ErreurIA extends Error {}
 
+/** Niveau de réflexion Gemini (modèles 3 et +). `undefined` = réglage par défaut du modèle. */
+export type NiveauReflexion = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH'
+
 const URL_API = 'https://generativelanguage.googleapis.com/v1beta/models'
 // La création d'un programme peut prendre plus d'une minute sur l'offre gratuite
 const DELAI_MS = 180_000
@@ -33,17 +36,24 @@ export async function appelerGemini({
   instructions,
   contexte,
   schema,
+  reflexion,
 }: {
   cle: string
   modele: string
   instructions: string
   contexte: string
   schema: object
+  reflexion?: NiveauReflexion
 }): Promise<unknown> {
   const corps = JSON.stringify({
     systemInstruction: { parts: [{ text: instructions }] },
     contents: [{ role: 'user', parts: [{ text: contexte }] }],
-    generationConfig: { responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 16384 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: schema,
+      maxOutputTokens: 16384,
+      ...(reflexion && { thinkingConfig: { thinkingLevel: reflexion } }),
+    },
   })
   const url = `${URL_API}/${encodeURIComponent(modele)}:generateContent`
   const envoyer = (avecEnTete: boolean) =>
@@ -68,6 +78,9 @@ export async function appelerGemini({
   }
 
   const donnees = (await reponse.json().catch(() => null)) as ReponseGemini | null
+  // Modèle qui ne gère pas le niveau de réflexion : on réessaie avec son réglage par défaut
+  if (reponse.status === 400 && reflexion && /think/i.test(donnees?.error?.message ?? ''))
+    return appelerGemini({ cle, modele, instructions, contexte, schema })
   if (!reponse.ok) throw new ErreurIA(messageErreur(reponse.status, donnees))
 
   const candidat = donnees?.candidates?.[0]

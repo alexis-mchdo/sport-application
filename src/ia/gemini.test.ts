@@ -22,6 +22,19 @@ describe('client Gemini', () => {
     expect(corps.systemInstruction.parts[0].text).toBe('i')
   })
 
+  it('envoie le niveau de réflexion, et réessaie sans si le modèle le refuse', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'Thinking level is not supported for this model.' } }), { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] })))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await appelerGemini({ cle: 'CLE', modele: 'm', instructions: 'i', contexte: 'c', schema: {}, reflexion: 'LOW' })
+    expect(r).toEqual({ ok: true })
+    const corps = (n: number) => JSON.parse((fetchMock.mock.calls[n][1] as RequestInit).body as string)
+    expect(corps(0).generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'LOW' })
+    expect(corps(1).generationConfig.thinkingConfig).toBeUndefined()
+  })
+
   it('ignore les parties « pensée »', async () => {
     repondre(200, { candidates: [{ content: { parts: [{ text: 'je réfléchis', thought: true }, { text: '{"a":1}' }] } }] })
     expect(await appel()).toEqual({ a: 1 })

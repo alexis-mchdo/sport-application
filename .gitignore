@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # Rapport des tests IA (local)
-scripts/eval-ia-rapport.md
+scripts/eval-ia-rapport*.md
