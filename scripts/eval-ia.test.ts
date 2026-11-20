@@ -4,6 +4,7 @@
 import { appendFileSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BIBLIOTHEQUE } from '../src/data/bibliotheque'
+import { NOM_MUSCLE } from '../src/data/muscles'
 import { MODELES, creerProgrammeDepuisModele } from '../src/data/modeles'
 import { appelerGemini } from '../src/ia/gemini'
 import { alertes, indexer } from '../src/logique/equilibre'
@@ -15,6 +16,7 @@ import {
   SCHEMA_PROGRAMME,
   contexteBilan,
   contexteCreation,
+  musclesAMenager,
   verifierAnalyse,
   verifierProgrammeIA,
 } from '../src/logique/ia'
@@ -30,6 +32,18 @@ const MODELE = env.GEMINI_MODELE ?? MODELE_IA_DEFAUT
 const RAPPORT = 'scripts/eval-ia-rapport.md'
 const exos = indexer(BIBLIOTHEQUE)
 const ecrire = (t: string) => appendFileSync(RAPPORT, `${t}\n`)
+
+/** Appelle l'IA ; en cas d'erreur, l'écrit dans le rapport (avec la durée) avant de la relancer. */
+async function appelerOuNoter(nom: string, appel: () => Promise<unknown>): Promise<{ brut: unknown; secondes: number }> {
+  const debut = Date.now()
+  try {
+    const brut = await appel()
+    return { brut, secondes: Math.round((Date.now() - debut) / 1000) }
+  } catch (e) {
+    ecrire(`\n## ${nom}\n❌ **Erreur après ${Math.round((Date.now() - debut) / 1000)} s** : ${(e as Error).message}`)
+    throw e
+  }
+}
 
 // ---------- Données de test ----------
 
@@ -114,10 +128,11 @@ async function bilan(nom: string, profil: Profil, p: Programme, historique: Sean
     propositionsRegles: proposerProgression(p, exos, cette, avant),
     refusRecents: [],
   })
-  const debut = Date.now()
-  const brut = await appelerGemini({ cle: CLE!, modele: MODELE, instructions: INSTRUCTIONS_BILAN, contexte, schema: SCHEMA_BILAN })
+  const { brut, secondes } = await appelerOuNoter(nom, () =>
+    appelerGemini({ cle: CLE!, modele: MODELE, instructions: INSTRUCTIONS_BILAN, contexte, schema: SCHEMA_BILAN }),
+  )
   const a = verifierAnalyse(brut, p, BIBLIOTHEQUE, profil)
-  ecrire(`\n## ${nom}\n_${Math.round((Date.now() - debut) / 1000)} s · contexte ${contexte.length} caractères_\n`)
+  ecrire(`\n## ${nom}\n_${secondes} s · contexte ${contexte.length} caractères_\n`)
   ecrire(`**Conseils**\n${a.conseils.map((c) => `- ${c}`).join('\n') || '- (aucun)'}`)
   ecrire(`\n**Propositions retenues**\n${a.propositions.map((x) => `- ${x.description} — ${x.raison}`).join('\n') || '- (aucune)'}`)
   ecrire(`\n**Écartées par l'app**\n${a.rejets.map((r) => `- ${r}`).join('\n') || '- (aucune)'}`)
@@ -125,17 +140,18 @@ async function bilan(nom: string, profil: Profil, p: Programme, historique: Sean
 }
 
 async function creation(nom: string, profil: Profil, nb: number) {
-  const debut = Date.now()
-  const brut = await appelerGemini({
-    cle: CLE!,
-    modele: MODELE,
-    instructions: INSTRUCTIONS_CREATION,
-    contexte: contexteCreation(profil, BIBLIOTHEQUE, nb),
-    schema: SCHEMA_PROGRAMME,
-  })
+  const { brut, secondes } = await appelerOuNoter(nom, () =>
+    appelerGemini({
+      cle: CLE!,
+      modele: MODELE,
+      instructions: INSTRUCTIONS_CREATION,
+      contexte: contexteCreation(profil, BIBLIOTHEQUE, nb),
+      schema: SCHEMA_PROGRAMME,
+    }),
+  )
   const r = verifierProgrammeIA(brut, BIBLIOTHEQUE, profil, nb)
   const al = alertes(r.programme, BIBLIOTHEQUE, 'jourFixe')
-  ecrire(`\n## ${nom}\n_${Math.round((Date.now() - debut) / 1000)} s_\n`)
+  ecrire(`\n## ${nom}\n_${secondes} s_\n`)
   ecrire(`**${r.programme.nom}** — ${r.explication}\n`)
   for (const s of r.programme.seances) {
     ecrire(`- **${s.nom}** (jour ${s.jourSemaine})`)
@@ -146,7 +162,7 @@ async function creation(nom: string, profil: Profil, nb: number) {
   return { ...r, alertes: al }
 }
 
-describe.skipIf(!CLE)(`Scénarios IA réels (${MODELE})`, { timeout: 180_000 }, () => {
+describe.skipIf(!CLE)(`Scénarios IA réels (${MODELE})`, { timeout: 300_000 }, () => {
   it('prépare le rapport', () => {
     writeFileSync(RAPPORT, `# Rapport de test de l'IA\n\nModèle : \`${MODELE}\` · ${new Date().toLocaleString('fr-FR')}\n`)
   })
@@ -173,6 +189,10 @@ describe.skipIf(!CLE)(`Scénarios IA réels (${MODELE})`, { timeout: 180_000 }, 
       exercicesAEviter: ['developpe-epaules-halteres'],
     }
     const r = await creation('2. Création — débutante, maison, haltères, douleur épaule', profil, 3)
+    // Muscles rouges acceptables seulement s'ils sont « à ménager » (épaules)
+    const aMenager = musclesAMenager(profil).map((m) => NOM_MUSCLE[m])
+    const rougesInjustifies = r.alertes.filter((a) => a.niveau === 'rouge' && !aMenager.some((n) => a.message.startsWith(n)))
+    expect(rougesInjustifies.map((a) => a.message)).toEqual([])
     const tous = r.programme.seances.flatMap((s) => s.exercices.map((e) => exos.get(e.exerciceId)!))
     expect(tous.every((e) => e.equipement === 'halteres' || e.equipement === 'poids_du_corps')).toBe(true)
     expect(tous.some((e) => e.id === 'developpe-epaules-halteres')).toBe(false)

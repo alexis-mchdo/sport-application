@@ -123,7 +123,7 @@ export function CreationIA({ retour, apresCreation }: { retour: () => void; apre
           <p className="text-sm text-discret">Ajoute d'abord ta clé gratuite dans Réglages → IA.</p>
         ) : (
           <Bouton onClick={generer} disabled={enCours}>
-            {enCours ? 'Génération en cours… (jusqu’à 1 min)' : '✨ Créer mon programme'}
+            {enCours ? 'Génération en cours… (1 à 2 min)' : '✨ Créer mon programme'}
           </Bouton>
         )}
         {erreur && <p className="text-sm text-red-400">{erreur}</p>}

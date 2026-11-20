@@ -199,7 +199,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
         {reglages.cleIA && !analyseIA && (
           <div className="space-y-2 p-3">
             <Bouton onClick={lancerAnalyse} disabled={iaEnCours || cette.length === 0}>
-              {iaEnCours ? 'Analyse en cours…' : '✨ Analyser ma semaine'}
+              {iaEnCours ? 'Analyse en cours… (jusqu’à 1 min)' : '✨ Analyser ma semaine'}
             </Bouton>
             {cette.length === 0 && <p className="text-center text-xs text-discret">Fais au moins une séance d'abord.</p>}
             {erreurIA && <p className="text-sm text-red-400">{erreurIA}</p>}

@@ -39,6 +39,9 @@ export const MUSCLES_ZONE: Record<ZoneCorps, Muscle[]> = {
 /** Blessures qui interdisent d'augmenter la charge (gêne légère exclue). */
 const blessuresBloquantes = (p: Profil): Blessure[] => p.blessures.filter((b) => b.active && b.gravite !== 'gene')
 
+/** Muscles liés à une zone douloureuse (à ne pas charger). */
+export const musclesAMenager = (p: Profil): Muscle[] => [...new Set(blessuresBloquantes(p).flatMap((b) => MUSCLES_ZONE[b.zone]))]
+
 /** Zone douloureuse que l'exercice sollicite en muscle principal, s'il y en a une. */
 export function zoneTouchee(e: Exercice, profil: Profil): ZoneCorps | undefined {
   return blessuresBloquantes(profil).find((b) => e.musclesPrincipaux.some((m) => MUSCLES_ZONE[b.zone].includes(m)))?.zone
@@ -130,7 +133,7 @@ const REGLES_COMMUNES = `Règles impératives :
 - Respecte les blessures : si une zone est douloureuse (blessure actuelle), n'augmente jamais la charge ni le volume d'un exercice qui la sollicite ; propose plutôt de baisser, de remplacer par une variante moins contraignante ou de retirer.
 - Pas de diagnostic médical. Si une douleur revient plusieurs semaines, conseille de consulter un professionnel de santé.
 - N'invente aucune donnée : base-toi seulement sur le profil, le programme et l'historique fournis.
-- Écris en français, de façon directe et concise.`
+- Écris en français, de façon directe et concise, et tutoie l'utilisateur.`
 
 export const INSTRUCTIONS_BILAN = `Tu es un coach de musculation prudent et rigoureux. Tu analyses la semaine d'entraînement d'un pratiquant et tu proposes des ajustements de son programme pour la semaine suivante.
 Tu ne discutes pas : tu réponds uniquement avec le JSON demandé.
@@ -156,7 +159,9 @@ Tu ne discutes pas : tu réponds uniquement avec le JSON demandé.
 ${REGLES_COMMUNES}
 - Exactement le nombre de séances demandé, chacune sur un jour différent (1 = lundi … 7 = dimanche), en privilégiant les jours disponibles et en évitant de travailler le même muscle deux jours de suite.
 - Respecte la durée de séance : environ le nombre de séries indiqué par séance.
-- Vise pour chaque muscle les fourchettes de séries par semaine indiquées (1 série par muscle principal, ½ par muscle secondaire), en donnant plus de volume aux muscles prioritaires.
+- CHAQUE muscle doit atteindre au moins le minimum de sa fourchette de séries par semaine (1 série par muscle principal, ½ par muscle secondaire), y compris les petits muscles (mollets, abdominaux, avant-bras, épaules latérales et arrière). Seule exception : les muscles « à ménager » à cause d'une douleur, que tu peux laisser plus bas (dis-le dans l'explication). Donne plus de volume aux muscles prioritaires.
+- Avant de répondre, compte les séries par muscle sur la semaine et corrige le programme si un muscle est sous son minimum.
+- Noms de séances courts (20 caractères maximum), par exemple « Haut A », « Jambes », « Full Body 1 ».
 - Exercices polyarticulaires en début de séance, isolation ensuite.
 - Poids de départ : environ 70 % du record pour 8 répétitions sur les mouvements correspondants ; mets 0 quand tu ne peux pas l'estimer (l'utilisateur le réglera). Arrondis au palier de l'exercice.
 - Débutant : programme simple, peu d'exercices, mouvements faciles à apprendre.
@@ -214,6 +219,7 @@ export function contexteCreation(profil: Profil, exercices: Exercice[], nbSeance
     `\nÀ créer : ${nbSeances} séances par semaine, environ ${seriesParSeance(profil.dureeSeanceMin)} séries par séance.`,
     `Jours disponibles : ${jours}.`,
     `\nFourchettes de séries par semaine et par muscle : ${ciblesTexte()}.`,
+    `Muscles à ménager (douleur) : ${musclesAMenager(profil).map((m) => NOM_MUSCLE[m]).join(', ') || 'aucun'}.`,
     `\nCatalogue des exercices autorisés (id | nom | muscles principaux (+ secondaires) | équipement | palier) :\n${catalogue(exercicesAutorises(exercices, profil))}`,
   ].join('\n')
 }

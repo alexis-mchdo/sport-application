@@ -188,6 +188,7 @@ describe('contexte envoyé à l’IA', () => {
     expect(t).toContain('Retirer Squat (barre)')
     expect(t).toContain('hack-squat | Hack squat')
     expect(contexteCreation(PROFIL_VIDE, BIBLIOTHEQUE, 4)).toContain('4 séances par semaine')
+    expect(contexteCreation(blesseEpaule, BIBLIOTHEQUE, 3)).toContain('Muscles à ménager (douleur) : Épaules avant, Épaules latérales, Épaules arrière')
   })
 
   it('le schéma de réponse impose propositions et conseils', () => {

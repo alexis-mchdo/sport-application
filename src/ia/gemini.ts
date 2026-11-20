@@ -4,7 +4,8 @@
 export class ErreurIA extends Error {}
 
 const URL_API = 'https://generativelanguage.googleapis.com/v1beta/models'
-const DELAI_MS = 90_000
+// La création d'un programme peut prendre plus d'une minute sur l'offre gratuite
+const DELAI_MS = 180_000
 
 interface ReponseGemini {
   candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[]
