@@ -7,6 +7,7 @@ import { ErreurIA, testerConnexion } from '../ia/gemini'
 import { MODELE_IA_DEFAUT } from '../logique/ia'
 import { exporter, importer, lireFichierSauvegarde } from '../sauvegarde'
 import { Bibliotheque } from './Bibliotheque'
+import { DemanderClaude } from './DemanderClaude'
 
 function texteDernierExport(iso: string | null) {
   if (!iso) return 'Jamais'
@@ -17,13 +18,14 @@ function texteDernierExport(iso: string | null) {
 }
 
 export function Reglages() {
-  const [sousEcran, setSousEcran] = useState<'bibliotheque' | null>(null)
+  const [sousEcran, setSousEcran] = useState<'bibliotheque' | 'claude' | null>(null)
   const reglages = useLiveQuery(lireReglages, [])
   const nbExercices = useLiveQuery(() => db.exercices.count(), [])
   const [occupe, setOccupe] = useState(false)
   const champFichier = useRef<HTMLInputElement>(null)
 
   if (sousEcran === 'bibliotheque') return <Bibliotheque retour={() => setSousEcran(null)} />
+  if (sousEcran === 'claude') return <DemanderClaude retour={() => setSousEcran(null)} />
   if (!reglages) return null
 
   const lancerExport = async () => {
@@ -125,6 +127,9 @@ export function Reglages() {
         </Ligne>
         <Ligne onClick={changerModele} droite={<span className="text-xs">{reglages.modeleIA}</span>} chevron>
           Modèle
+        </Ligne>
+        <Ligne onClick={() => setSousEcran('claude')} chevron>
+          Demander un second avis à Claude
         </Ligne>
         {reglages.cleIA && (
           <div className="space-y-2 p-3">

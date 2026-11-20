@@ -6,6 +6,7 @@ import { Bouton, Entete, Ligne, Section, Segmente } from '../composants/ui'
 import { RESSENTIS } from '../data/ressentis'
 import { db, lireReglages } from '../db'
 import { ErreurIA } from '../ia/gemini'
+import { DemanderClaude } from './DemanderClaude'
 import { NOM_ZONE } from '../logique/profil'
 import { iaRemplaceRegle } from '../logique/ia'
 import { proposerProgression, type Proposition } from '../logique/progression'
@@ -33,8 +34,10 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
   const [iaEnCours, setIaEnCours] = useState(false)
   const [erreurIA, setErreurIA] = useState<string | null>(null)
   const [voirRejets, setVoirRejets] = useState(false)
+  const [claude, setClaude] = useState(false)
 
   if (!programmes || !exercices || !realisees || !reglages || analyseIA === undefined) return null
+  if (claude) return <DemanderClaude retour={() => setClaude(false)} typeInitial="bilan" />
   const programme = programmes.find((p) => p.actif)
   const numero = reglages.semaine.numero
   const exos = new Map(exercices.map((e) => [e.id, e]))
@@ -259,7 +262,11 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
         )}
       </Section>
 
-      <div className="mt-6">
+      <button onClick={() => setClaude(true)} className="mt-3 w-full py-2 text-sm text-accent">
+        Demander aussi un second avis à Claude
+      </button>
+
+      <div className="mt-4">
         <Bouton onClick={valider} disabled={!programme || envoi}>
           Valider et passer à la semaine {numero + 1}
         </Bouton>

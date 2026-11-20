@@ -1,6 +1,6 @@
 # Document de conception — App de musculation
 
-Statut : **validé**, en cours de construction (étapes 1 à 6 faites + IA branchée). Les changements importants sont discutés avant d'être codés.
+Statut : **validé**, en cours de construction (étapes 1 à 7 faites + IA branchée). Les changements importants sont discutés avant d'être codés.
 
 ## 1. Objectif
 
@@ -132,14 +132,13 @@ La semaine est un **cycle numéroté (Semaine 1, 2, 3…) clôturé à la main**
 **Valider et passer à la semaine N+1** : les changements acceptés sont appliqués au programme, le bilan est enregistré,
 la nouvelle semaine repart à 0. Les semaines clôturées restent dans Stats, en lecture seule.
 
-## 8. « Copier pour Claude »
+## 8. « Demander à Claude » (second avis)
 
-Le bouton génère un texte prêt à coller dans l'app Claude :
-- le programme actuel (séances, exercices, objectifs) ;
-- un résumé des 4 dernières semaines (séances faites, séries ratées, progression des charges, volume par muscle) ;
-- une question au choix : *bilan de la semaine*, *analyse de mon programme*, *ou question libre*.
-
-Plus tard, on pourra le remplacer par une API gratuite (ex. Gemini) pour un coach intégré.
+Gardé en complément de Gemini : Réglages → IA → « Demander un second avis à Claude », ou depuis le bilan de la semaine.
+L'app prépare un texte (question en tête et en fin, profil, programme, équilibre, 4 dernières semaines,
+propositions de l'app pour un bilan) ; question au choix : *ma semaine*, *mon programme* ou *question libre*.
+Bouton « Copier » (méthode de secours si le presse-papiers moderne est refusé), puis « Ouvrir Claude » et coller.
+Aucune donnée n'est envoyée par l'app elle-même.
 
 ## 9. Étapes de construction
 

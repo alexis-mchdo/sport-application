@@ -81,7 +81,7 @@ export function codesSeances(programme: Programme): Map<string, Seance> {
 
 const kg = (n: number) => `${n.toLocaleString('fr-FR')} kg`
 
-function programmeTexte(programme: Programme, exos: Map<string, Exercice>): string {
+export function programmeTexte(programme: Programme, exos: Map<string, Exercice>): string {
   return [...codesSeances(programme)]
     .map(([code, s]) => {
       const jour = s.jourSemaine ? ` (${NOM_JOUR[s.jourSemaine].toLowerCase()})` : ''
@@ -93,7 +93,7 @@ function programmeTexte(programme: Programme, exos: Map<string, Exercice>): stri
     .join('\n')
 }
 
-function historiqueTexte(seances: SeanceRealisee[], exos: Map<string, Exercice>): string {
+export function historiqueTexte(seances: SeanceRealisee[], exos: Map<string, Exercice>): string {
   const parSemaine = new Map<number, SeanceRealisee[]>()
   for (const s of seances) parSemaine.set(s.semaine ?? 0, [...(parSemaine.get(s.semaine ?? 0) ?? []), s])
   return [...parSemaine]
@@ -121,7 +121,7 @@ function historiqueTexte(seances: SeanceRealisee[], exos: Map<string, Exercice>)
     .join('\n\n')
 }
 
-function equilibreTexte(programme: Programme, exercices: Exercice[]): string {
+export function equilibreTexte(programme: Programme, exercices: Exercice[]): string {
   const vol = volumeHebdo(programme, indexer(exercices))
   const parMuscle = MUSCLES.map((m) => `${NOM_MUSCLE[m]} ${formaterVolume(vol[m])} (${statut(m, vol[m])})`).join(' ; ')
   const liste = alertes(programme, exercices, 'jourFixe').map((a) => `- ${a.message}`)
