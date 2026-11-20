@@ -179,6 +179,8 @@ que l'app affiche dans le bilan de la semaine, avec des boutons **[Accepter] [Re
 **Branchement** : API Gemini (`gemini-flash-latest` par défaut, modifiable dans Réglages → IA), clé gratuite créée sur
 aistudio.google.com et collée dans Réglages. Appel direct depuis l'iPhone, déclenché par un bouton (jamais automatique).
 La clé reste sur l'appareil : exclue des exports, conservée lors d'un import.
+Réponse en 1 à 2 min (offre gratuite) ; relance automatique (2 fois) si Google est surchargé.
+Réflexion réduite testée (scénarios du 20/11/2026) : pas plus rapide et moins bonne → non retenue.
 
 **Où** : Programme → Nouveau → « ✨ Créer avec l'IA » (aperçu + jauge d'équilibre avant de l'utiliser) ;
 Bilan de la semaine → « ✨ Analyser ma semaine » (conseils + propositions Oui / Non, appliquées à la clôture).

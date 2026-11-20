@@ -35,6 +35,32 @@ describe('client Gemini', () => {
     expect(corps(1).generationConfig.thinkingConfig).toBeUndefined()
   })
 
+  it('relance automatiquement quand Google est surchargé', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] })))
+    vi.stubGlobal('fetch', fetchMock)
+    const resultat = appel()
+    await vi.runAllTimersAsync()
+    expect(await resultat).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    vi.useRealTimers()
+  })
+
+  it('abandonne après les relances si la surcharge continue', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const resultat = appel().catch((e: Error) => e)
+    await vi.runAllTimersAsync()
+    expect(((await resultat) as Error).message).toMatch(/indisponible/)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    vi.useRealTimers()
+  })
+
   it('ignore les parties « pensée »', async () => {
     repondre(200, { candidates: [{ content: { parts: [{ text: 'je réfléchis', thought: true }, { text: '{"a":1}' }] } }] })
     expect(await appel()).toEqual({ a: 1 })

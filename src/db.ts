@@ -70,8 +70,6 @@ export interface Reglages {
   cleIA: string | null
   /** Modèle Gemini utilisé */
   modeleIA: string
-  /** « rapide » = réflexion réduite (réponses plus rapides, un peu moins fouillées) */
-  reflexionIA: 'normale' | 'rapide'
 }
 
 /** Réglages qui ne quittent jamais l'appareil : exclus des exports, conservés lors d'un import. */
@@ -83,7 +81,6 @@ export const REGLAGES_DEFAUT: Reglages = {
   dernierExport: null,
   cleIA: null,
   modeleIA: MODELE_IA_DEFAUT,
-  reflexionIA: 'normale',
 }
 
 export async function lireReglages(): Promise<Reglages> {

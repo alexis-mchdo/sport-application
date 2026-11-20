@@ -35,11 +35,11 @@ export async function lireAnalyseSemaine(): Promise<AnalyseSemaine | null> {
 async function parametresIA() {
   const r = await lireReglages()
   if (!r.cleIA) throw new ErreurIA("Ajoute d'abord ta clé IA dans Réglages → IA.")
-  return { cle: r.cleIA, modele: r.modeleIA, reflexion: r.reflexionIA === 'rapide' ? ('LOW' as const) : undefined, reglages: r }
+  return { cle: r.cleIA, modele: r.modeleIA, reglages: r }
 }
 
 export async function analyserSemaine(): Promise<void> {
-  const { cle, modele, reflexion, reglages } = await parametresIA()
+  const { cle, modele, reglages } = await parametresIA()
   const numero = reglages.semaine.numero
   const [profil, programmes, exercices, realisees, bilans] = await Promise.all([
     lireProfil(),
@@ -65,7 +65,6 @@ export async function analyserSemaine(): Promise<void> {
   const reponse = await appelerGemini({
     cle,
     modele,
-    reflexion,
     instructions: INSTRUCTIONS_BILAN,
     contexte: contexteBilan({
       profil,
@@ -98,12 +97,11 @@ export async function effacerAnalyseSemaine() {
 }
 
 export async function creerProgrammeAvecIA(nbSeances: number): Promise<ProgrammeIA> {
-  const { cle, modele, reflexion } = await parametresIA()
+  const { cle, modele } = await parametresIA()
   const [profil, exercices] = await Promise.all([lireProfil(), db.exercices.toArray()])
   const reponse = await appelerGemini({
     cle,
     modele,
-    reflexion,
     instructions: INSTRUCTIONS_CREATION,
     contexte: contexteCreation(profil, exercices, nbSeances),
     schema: SCHEMA_PROGRAMME,

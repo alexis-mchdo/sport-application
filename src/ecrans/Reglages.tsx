@@ -126,16 +126,6 @@ export function Reglages() {
         <Ligne onClick={changerModele} droite={<span className="text-xs">{reglages.modeleIA}</span>} chevron>
           Modèle
         </Ligne>
-        <div className="p-2">
-          <Segmente
-            options={[
-              { valeur: 'normale', libelle: 'Réflexion normale' },
-              { valeur: 'rapide', libelle: 'Rapide' },
-            ]}
-            valeur={reglages.reflexionIA}
-            onChange={(v) => ecrireReglage('reflexionIA', v)}
-          />
-        </div>
         {reglages.cleIA && (
           <div className="space-y-2 p-3">
             <Bouton variante="secondaire" onClick={tester} disabled={occupe}>

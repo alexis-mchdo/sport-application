@@ -9,6 +9,10 @@ export type NiveauReflexion = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH'
 const URL_API = 'https://generativelanguage.googleapis.com/v1beta/models'
 // La création d'un programme peut prendre plus d'une minute sur l'offre gratuite
 const DELAI_MS = 180_000
+/** Attentes avant de relancer quand Google est surchargé (erreurs 500, 502, 503, 504). */
+export const ATTENTES_RELANCE_MS = [3_000, 8_000]
+const SURCHARGE = [500, 502, 503, 504]
+const attendre = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 interface ReponseGemini {
   candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[]
@@ -64,17 +68,25 @@ export async function appelerGemini({
       signal: AbortSignal.timeout(DELAI_MS),
     })
 
-  let reponse: Response
-  try {
-    reponse = await envoyer(true)
-  } catch (e) {
-    if ((e as Error).name === 'TimeoutError') throw new ErreurIA("L'IA met trop de temps à répondre. Réessaie.")
-    // Si l'en-tête est refusé par le navigateur, on réessaie avec la clé dans l'adresse (HTTPS).
+  let avecEnTete = true
+  const envoyerUneFois = async (): Promise<Response> => {
     try {
-      reponse = await envoyer(false)
-    } catch {
-      throw new ErreurIA("Impossible de joindre l'IA. Vérifie ta connexion internet.")
+      return await envoyer(avecEnTete)
+    } catch (e) {
+      if ((e as Error).name === 'TimeoutError') throw new ErreurIA("L'IA met trop de temps à répondre. Réessaie.")
+      if (!avecEnTete) throw new ErreurIA("Impossible de joindre l'IA. Vérifie ta connexion internet.")
+      // Si l'en-tête est refusé par le navigateur, on réessaie avec la clé dans l'adresse (HTTPS).
+      avecEnTete = false
+      return envoyerUneFois()
     }
+  }
+
+  let reponse = await envoyerUneFois()
+  // Surcharge passagère chez Google : on relance automatiquement avant d'afficher une erreur
+  for (const attente of ATTENTES_RELANCE_MS) {
+    if (!SURCHARGE.includes(reponse.status)) break
+    await attendre(attente)
+    reponse = await envoyerUneFois()
   }
 
   const donnees = (await reponse.json().catch(() => null)) as ReponseGemini | null
