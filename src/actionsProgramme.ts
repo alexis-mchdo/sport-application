@@ -1,4 +1,5 @@
 import { db } from './db'
+import { conserverIdsSeances } from './logique/programme'
 import type { Programme, Seance } from './types'
 
 /** Modifie un programme en place (dans une transaction). */
@@ -39,5 +40,14 @@ export async function supprimerProgramme(id: string) {
       const restant = await db.programmes.toCollection().first()
       if (restant) await db.programmes.put({ ...restant, actif: true })
     }
+  })
+}
+
+/** Remplace le contenu d'un programme existant (nom, séances) en gardant les séances de même nom. */
+export async function remplacerProgramme(id: string, nouveau: Programme) {
+  await db.transaction('rw', db.programmes, async () => {
+    const ancien = await db.programmes.get(id)
+    if (!ancien) return
+    await db.programmes.put(conserverIdsSeances(ancien, nouveau))
   })
 }

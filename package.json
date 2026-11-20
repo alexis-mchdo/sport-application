@@ -9,8 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "icons": "pwa-assets-generator",
-    "test": "vitest run",
-    "eval:ia": "vitest run scripts/eval-ia.test.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "dexie": "^4.4.7",

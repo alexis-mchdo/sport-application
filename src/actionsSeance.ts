@@ -1,5 +1,4 @@
 import { db, lireReglages } from './db'
-import { appliquerPropositionsIA, type PropositionIA } from './logique/ia'
 import { demarrerSeance } from './logique/seance'
 import type { DecisionProgression, Programme, Seance, SeanceRealisee } from './types'
 
@@ -35,38 +34,22 @@ export async function supprimerRealisee(id: string) {
 }
 
 /**
- * Clôture la semaine d'entraînement : applique au programme les changements de charge acceptés
- * puis les propositions de l'IA acceptées, enregistre le bilan, puis ouvre la semaine suivante (vide).
- * L'historique est conservé.
+ * Clôture la semaine d'entraînement : applique au programme les changements de charge acceptés,
+ * enregistre le bilan, puis ouvre la semaine suivante (vide). L'historique est conservé.
  */
-export async function cloturerSemaine(
-  programme: Programme,
-  decisions: DecisionProgression[],
-  ia?: { acceptees: PropositionIA[]; refusees: PropositionIA[] },
-) {
-  await db.transaction('rw', [db.programmes, db.bilans, db.reglages, db.seancesRealisees, db.exercices], async () => {
+export async function cloturerSemaine(programme: Programme, decisions: DecisionProgression[]) {
+  await db.transaction('rw', [db.programmes, db.bilans, db.reglages, db.seancesRealisees], async () => {
     const { semaine } = await lireReglages()
-    let p = await db.programmes.get(programme.id)
+    const p = await db.programmes.get(programme.id)
     if (p) {
       for (const d of decisions) {
         const exo = p.seances.find((s) => s.id === d.seanceId)?.exercices.find((e) => e.exerciceId === d.exerciceId)
         if (exo) Object.assign(exo, { poidsKg: d.nouveauPoids, reps: d.nouveauReps })
       }
-      if (ia?.acceptees.length) {
-        const exos = new Map((await db.exercices.toArray()).map((e) => [e.id, e]))
-        p = appliquerPropositionsIA(p, ia.acceptees, exos)
-      }
       await db.programmes.put(p)
     }
     const maintenant = new Date().toISOString()
-    await db.bilans.put({
-      semaine: String(semaine.numero),
-      debut: semaine.debut,
-      fin: maintenant,
-      decisions,
-      ia: ia && { acceptees: ia.acceptees.map((x) => x.description), refusees: ia.refusees.map((x) => x.description) },
-    })
-    await db.reglages.delete('analyseIA')
+    await db.bilans.put({ semaine: String(semaine.numero), debut: semaine.debut, fin: maintenant, decisions })
     await db.reglages.put({ cle: 'semaine', valeur: { numero: semaine.numero + 1, debut: maintenant } })
     // Une séance encore en cours passe dans la nouvelle semaine
     await db.seancesRealisees.filter((s) => !!s.enCours).modify((s) => {

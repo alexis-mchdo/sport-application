@@ -12,9 +12,11 @@ import { choisirSeancePour, nouvelleSeance, prescriptionParDefaut, seancesTriees
 import type { Exercice, Seance } from '../types'
 import { AssistantProgramme } from './AssistantProgramme'
 import { EditeurSeance } from './EditeurSeance'
+import { DemanderClaude } from './DemanderClaude'
+import { ImporterProgramme } from './ImporterProgramme'
 import { ListeProgrammes } from './ListeProgrammes'
 
-type SousEcran = { type: 'seance'; id: string } | { type: 'liste' } | { type: 'assistant' } | null
+type SousEcran = { type: 'seance'; id: string } | { type: 'liste' } | { type: 'assistant' } | { type: 'claude' } | { type: 'importer' } | null
 
 /** Muscles principaux d'une séance, du plus travaillé au moins travaillé. */
 function resumeMuscles(seance: Seance, exos: Map<string, Exercice>) {
@@ -42,6 +44,9 @@ export function Programme() {
     return <AssistantProgramme retour={programmes.length > 0 ? fermer : undefined} apresCreation={fermer} />
   if (sousEcran?.type === 'liste')
     return <ListeProgrammes retour={fermer} nouveau={() => setSousEcran({ type: 'assistant' })} />
+
+  if (sousEcran?.type === 'claude') return <DemanderClaude retour={fermer} typeInitial="programme" modeInitial="adapter" />
+  if (sousEcran?.type === 'importer') return <ImporterProgramme retour={fermer} apresImport={fermer} />
 
   const programme = programmes.find((p) => p.actif) ?? programmes[0]
   if (sousEcran?.type === 'seance' && programme.seances.some((s) => s.id === sousEcran.id))
@@ -129,6 +134,15 @@ export function Programme() {
         mode={reglages.modePlanning}
         onAjouter={(id, alerte) => ajouterSuggestion(id, alerte.muscle)}
       />
+
+      <Section titre="Avec Claude" pied="Claude te renvoie un programme à recoller ici ; l'app le vérifie avant de l'utiliser.">
+        <Ligne onClick={() => setSousEcran({ type: 'claude' })} chevron>
+          Créer / adapter avec Claude
+        </Ligne>
+        <Ligne onClick={() => setSousEcran({ type: 'importer' })} chevron>
+          Importer la réponse de Claude
+        </Ligne>
+      </Section>
 
       <Toast message={toast.message} />
     </div>

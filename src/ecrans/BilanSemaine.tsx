@@ -1,17 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { analyserSemaine, choisirPropositionIA, lireAnalyseSemaine } from '../actionsIA'
 import { cloturerSemaine } from '../actionsSeance'
 import { Bouton, Entete, Ligne, Section, Segmente } from '../composants/ui'
 import { RESSENTIS } from '../data/ressentis'
 import { db, lireReglages } from '../db'
-import { ErreurIA } from '../ia/gemini'
-import { DemanderClaude } from './DemanderClaude'
 import { NOM_ZONE } from '../logique/profil'
-import { iaRemplaceRegle } from '../logique/ia'
 import { proposerProgression, type Proposition } from '../logique/progression'
 import { bilanSeance } from '../logique/seance'
 import type { DecisionProgression, ZoneCorps } from '../types'
+import { DemanderClaude } from './DemanderClaude'
 
 const cle = (p: Proposition) => `${p.seanceId}:${p.exerciceId}`
 const kg = (n: number) => n.toLocaleString('fr-FR')
@@ -30,13 +27,9 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
   const reglages = useLiveQuery(lireReglages, [])
   const [refus, setRefus] = useState<Set<string>>(new Set())
   const [envoi, setEnvoi] = useState(false)
-  const analyseIA = useLiveQuery(lireAnalyseSemaine, [])
-  const [iaEnCours, setIaEnCours] = useState(false)
-  const [erreurIA, setErreurIA] = useState<string | null>(null)
-  const [voirRejets, setVoirRejets] = useState(false)
   const [claude, setClaude] = useState(false)
 
-  if (!programmes || !exercices || !realisees || !reglages || analyseIA === undefined) return null
+  if (!programmes || !exercices || !realisees || !reglages) return null
   if (claude) return <DemanderClaude retour={() => setClaude(false)} typeInitial="bilan" />
   const programme = programmes.find((p) => p.actif)
   const numero = reglages.semaine.numero
@@ -57,23 +50,6 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
   const douleurs = new Map<ZoneCorps, number>()
   for (const s of cette) for (const z of s.douleurs ?? []) douleurs.set(z, (douleurs.get(z) ?? 0) + 1)
 
-  const propositionsIA = analyseIA?.analyse.propositions ?? []
-  const accepteesIA = propositionsIA.filter((p) => analyseIA?.acceptees.includes(p.id))
-  const refuseesIA = propositionsIA.filter((p) => !analyseIA?.acceptees.includes(p.id))
-  const remplaceeParIA = (p: Proposition) => iaRemplaceRegle(p.seanceId, p.exerciceId, accepteesIA)
-
-  const lancerAnalyse = async () => {
-    setIaEnCours(true)
-    setErreurIA(null)
-    try {
-      await analyserSemaine()
-    } catch (e) {
-      setErreurIA(e instanceof ErreurIA ? e.message : `Erreur : ${(e as Error).message}`)
-    } finally {
-      setIaEnCours(false)
-    }
-  }
-
   const valider = async () => {
     if (!programme) return
     const nonFaites = programme.seances.length - new Set(cette.map((s) => s.seanceId)).size
@@ -84,7 +60,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
     if (!confirm(message)) return
     setEnvoi(true)
     const decisions: DecisionProgression[] = changements
-      .filter((p) => !refus.has(cle(p)) && !remplaceeParIA(p))
+      .filter((p) => !refus.has(cle(p)))
       .map((p) => ({
         seanceId: p.seanceId,
         exerciceId: p.exerciceId,
@@ -93,7 +69,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
         ancienReps: p.avant.reps,
         nouveauReps: p.apres.reps,
       }))
-    await cloturerSemaine(programme, decisions, analyseIA ? { acceptees: accepteesIA, refusees: refuseesIA } : undefined)
+    await cloturerSemaine(programme, decisions)
     apresCloture()
   }
 
@@ -145,7 +121,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
                 {p.seanceNom} · {p.raison}
               </p>
             </div>
-            <div className={`w-28 shrink-0 ${remplaceeParIA(p) ? 'opacity-30' : ''}`}>
+            <div className="w-28 shrink-0">
               <Segmente
                 options={[
                   { valeur: 'oui', libelle: 'Oui' },
@@ -186,88 +162,16 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
       )}
 
       <Section
-        titre="Analyse de l'IA"
-        pied={
-          analyseIA
-            ? "Rien n'est appliqué sans ton « Oui ». Tes refus sont mémorisés et renvoyés à l'IA la prochaine fois."
-            : undefined
-        }
+        titre="Bilan avec Claude"
+        pied="Pour appliquer ses changements au programme : valide la semaine, puis Programme → « Créer / adapter avec Claude »."
       >
-        {!reglages.cleIA && (
-          <p className="px-4 py-4 text-sm text-discret">
-            Ajoute ta clé gratuite dans Réglages → IA pour que l'IA analyse ta semaine (séries, ressentis, douleurs, profil).
-          </p>
-        )}
-
-        {reglages.cleIA && !analyseIA && (
-          <div className="space-y-2 p-3">
-            <Bouton onClick={lancerAnalyse} disabled={iaEnCours || cette.length === 0}>
-              {iaEnCours ? 'Analyse en cours… (jusqu’à 1 min)' : '✨ Analyser ma semaine'}
-            </Bouton>
-            {cette.length === 0 && <p className="text-center text-xs text-discret">Fais au moins une séance d'abord.</p>}
-            {erreurIA && <p className="text-sm text-red-400">{erreurIA}</p>}
-          </div>
-        )}
-
-        {analyseIA && (
-          <>
-            {analyseIA.modele && analyseIA.modele !== reglages.modeleIA && (
-              <p className="px-4 pt-3 text-xs text-discret">Analyse faite par le modèle de secours ({analyseIA.modele}) : le modèle principal était saturé.</p>
-            )}
-            {analyseIA.analyse.conseils.map((c, i) => (
-              <p key={i} className="px-4 py-3 text-sm">
-                💡 {c}
-              </p>
-            ))}
-            {propositionsIA.length === 0 && (
-              <p className="px-4 py-3 text-sm text-discret">Aucun changement proposé : continue comme ça.</p>
-            )}
-            {propositionsIA.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">{p.description}</p>
-                  <p className="text-xs text-discret">{p.raison}</p>
-                </div>
-                <div className="w-28 shrink-0">
-                  <Segmente
-                    options={[
-                      { valeur: 'oui', libelle: 'Oui' },
-                      { valeur: 'non', libelle: 'Non' },
-                    ]}
-                    valeur={analyseIA.acceptees.includes(p.id) ? 'oui' : 'non'}
-                    onChange={(v) => choisirPropositionIA(p.id, v === 'oui')}
-                  />
-                </div>
-              </div>
-            ))}
-            {analyseIA.analyse.rejets.length > 0 && (
-              <div className="px-4 py-3">
-                <button onClick={() => setVoirRejets(!voirRejets)} className="text-xs text-discret">
-                  {analyseIA.analyse.rejets.length} proposition{analyseIA.analyse.rejets.length > 1 ? 's' : ''} écartée
-                  {analyseIA.analyse.rejets.length > 1 ? 's' : ''} par l'app (règles de sécurité) {voirRejets ? '▲' : '▼'}
-                </button>
-                {voirRejets && (
-                  <ul className="mt-2 space-y-1 text-xs text-discret">
-                    {analyseIA.analyse.rejets.map((r, i) => (
-                      <li key={i}>• {r}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-            <div className="p-3">
-              <button onClick={lancerAnalyse} disabled={iaEnCours} className="w-full py-1 text-sm text-accent disabled:opacity-40">
-                {iaEnCours ? 'Analyse en cours…' : "Relancer l'analyse"}
-              </button>
-              {erreurIA && <p className="text-sm text-red-400">{erreurIA}</p>}
-            </div>
-          </>
-        )}
+        <div className="p-3">
+          <Bouton variante="secondaire" onClick={() => setClaude(true)} disabled={cette.length === 0}>
+            Envoyer mon bilan à Claude
+          </Bouton>
+          {cette.length === 0 && <p className="mt-2 text-center text-xs text-discret">Fais au moins une séance d'abord.</p>}
+        </div>
       </Section>
-
-      <button onClick={() => setClaude(true)} className="mt-3 w-full py-2 text-sm text-accent">
-        Demander aussi un second avis à Claude
-      </button>
 
       <div className="mt-4">
         <Bouton onClick={valider} disabled={!programme || envoi}>

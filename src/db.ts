@@ -1,6 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { BIBLIOTHEQUE } from './data/bibliotheque'
-import { MODELE_IA_DEFAUT } from './logique/ia'
 import { PROFIL_VIDE } from './logique/profil'
 import type { BilanSemaine, Exercice, ModePlanning, Profil, Programme, Reglage, SeanceRealisee } from './types'
 
@@ -39,6 +38,8 @@ export async function migrerDonnees() {
       semaine = { numero: 1, debut: premiere?.date ?? new Date().toISOString() }
       await db.reglages.put({ cle: 'semaine', valeur: semaine })
     }
+    // Restes de l'intégration Gemini (retirée) : clé API et analyses
+    await db.reglages.bulkDelete(['cleIA', 'modeleIA', 'reflexionIA', 'analyseIA'])
     const numero = semaine.numero
     await db.seancesRealisees.filter((s) => s.semaine === undefined).modify((s) => {
       s.semaine = numero
@@ -66,21 +67,12 @@ export interface Reglages {
   semaine: SemaineCourante
   /** ISO 8601 du dernier export, null si jamais exporté */
   dernierExport: string | null
-  /** Clé API Gemini : reste sur l'appareil, jamais exportée (voir CLES_LOCALES) */
-  cleIA: string | null
-  /** Modèle Gemini utilisé */
-  modeleIA: string
 }
-
-/** Réglages qui ne quittent jamais l'appareil : exclus des exports, conservés lors d'un import. */
-export const CLES_LOCALES = ['cleIA']
 
 export const REGLAGES_DEFAUT: Reglages = {
   modePlanning: 'jourFixe',
   semaine: { numero: 1, debut: new Date(0).toISOString() },
   dernierExport: null,
-  cleIA: null,
-  modeleIA: MODELE_IA_DEFAUT,
 }
 
 export async function lireReglages(): Promise<Reglages> {

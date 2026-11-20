@@ -19,7 +19,7 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 | Saisie | Objectifs pré-remplis, un tap = série validée, pas de RPE |
 | Minuteur de repos | **Aucun** (pas fiable sur Safari) |
 | Bibliothèque | Fournie (~80 exercices), extensible |
-| IA | Gemini (clé gratuite Google, saisie dans Réglages), appelé depuis l'iPhone ; **pas un chatbot** (§11) |
+| IA | **Claude par copier-coller** (aucune API, aucune clé) : l'app prépare les textes, importe le programme renvoyé (§8, §11) |
 | Apparence | Thème sombre uniquement |
 | Planning | Au choix dans les réglages : **jour fixe** (par défaut) ou **ordre** du programme |
 | Poids de corps | Plus tard (hors V1) |
@@ -132,13 +132,22 @@ La semaine est un **cycle numéroté (Semaine 1, 2, 3…) clôturé à la main**
 **Valider et passer à la semaine N+1** : les changements acceptés sont appliqués au programme, le bilan est enregistré,
 la nouvelle semaine repart à 0. Les semaines clôturées restent dans Stats, en lecture seule.
 
-## 8. « Demander à Claude » (second avis)
+## 8. Échanges avec Claude (copier-coller)
 
-Gardé en complément de Gemini : Réglages → IA → « Demander un second avis à Claude », ou depuis le bilan de la semaine.
-L'app prépare un texte (question en tête et en fin, profil, programme, équilibre, 4 dernières semaines,
-propositions de l'app pour un bilan) ; question au choix : *ma semaine*, *mon programme* ou *question libre*.
-Bouton « Copier » (méthode de secours si le presse-papiers moderne est refusé), puis « Ouvrir Claude » et coller.
-Aucune donnée n'est envoyée par l'app elle-même.
+Accès : Réglages → Claude, Programme → « Avec Claude », bilan de la semaine, et « ✨ Créer avec Claude » à la création.
+L'app prépare un texte ; « Copier », puis « Ouvrir Claude » et coller. Rien n'est envoyé par l'app elle-même.
+
+1. **Bilan** : profil, programme, équilibre, 4 dernières semaines (séries, échecs, ressentis, douleurs, notes),
+   propositions de l'app. Claude répond par une analyse ; pour appliquer ses changements → point 2 après validation de la semaine.
+2. **Programme (créer ou adapter)** : nombre de séances, consignes libres, contraintes (jours, séries par séance,
+   fourchettes par muscle, muscles à ménager, blessures), catalogue des exercices autorisés avec leur identifiant,
+   et le **format de réponse imposé** : un bloc ```json `{ nom, explication, seances: [{ nom, jour, exercices: [{ exercice, series, reps, poidsKg }] }] }`.
+   « Adapter » inclut le programme actuel et l'historique, et demande de garder les noms des séances conservées.
+3. **Import** (« 3. Importer la réponse de Claude », ou Programme → « Importer la réponse de Claude ») : coller tout le
+   message ou le bloc json → l'app extrait et **vérifie** (exercices connus, ni à éviter ni hors matériel, séries 1–6,
+   reps 1–30, poids arrondi au palier, jours complétés) → aperçu avec la jauge d'équilibre → « Remplacer » le programme
+   actuel (les séances de même nom gardent leur historique) ou « L'ajouter comme nouveau programme ».
+4. **Question libre**.
 
 ## 9. Étapes de construction
 
@@ -168,36 +177,11 @@ Enregistrement automatique, pourcentage de complétion, aperçu du texte envoyé
 - **Records** actuels (squat, développé couché, soulevé de terre, militaire, tractions).
 - **Notes** libres.
 
-## 11. IA — pas un chatbot
+## 11. IA
 
-L'IA ne discute pas et **on ne lui écrit jamais** : elle reçoit le profil (§10), le programme, l'historique et les
-**ressentis / douleurs** saisis en fin de séance, et renvoie des **propositions structurées** et de **courts conseils**
-que l'app affiche dans le bilan de la semaine, avec des boutons **[Accepter] [Refuser]**.
-
-1. **Créer mon premier programme** selon le profil (exercices pris dans la bibliothèque, poids de départ selon les records).
-2. **Bilan hebdo** : « tu peux monter sur X », « remplace Y à cause de ton épaule », « ajoute du volume sur Z ».
-3. **Adapter à une blessure** déclarée dans le profil.
-
-**Branchement** : API Gemini (`gemini-flash-latest` par défaut, modifiable dans Réglages → IA), clé gratuite créée sur
-aistudio.google.com et collée dans Réglages. Appel direct depuis l'iPhone, déclenché par un bouton (jamais automatique).
-La clé reste sur l'appareil : exclue des exports, conservée lors d'un import.
-Réponse en 1 à 2 min (offre gratuite) ; relance automatique (2 fois) si Google est surchargé.
-Réflexion réduite testée (scénarios du 20/11/2026) : pas plus rapide et moins bonne → non retenue.
-
-**Où** : Programme → Nouveau → « ✨ Créer avec l'IA » (aperçu + jauge d'équilibre avant de l'utiliser) ;
-Bilan de la semaine → « ✨ Analyser ma semaine » (conseils + propositions Oui / Non, appliquées à la clôture).
-
-**Alignement** :
-1. Instructions fixes (coach prudent, français, règles impératives) — `src/logique/ia.ts`.
-2. Réponse au format JSON imposé (schéma) : propositions `charge` / `remplacer` / `ajouter` / `retirer` + 3 conseils max.
-3. Contexte complet : profil, programme (séances codées S1, S2…), équilibre, 4 dernières semaines (séries, échecs,
-   ressentis, douleurs, notes), propositions des règles §7 (à ne pas répéter), refus récents, catalogue autorisé
-   (sans les exercices à éviter ni ceux hors matériel).
-4. Vérification par l'app de chaque proposition : exercice connu et autorisé, séance existante, +10 % de charge max,
-   ±3 reps / ±1 série, aucune hausse ni ajout sur une zone douloureuse, remplacement sur le même muscle,
-   aucun muscle qui deviendrait « manquant ». Les propositions écartées sont affichées avec leur raison.
-5. Rien n'est appliqué sans « Oui » (par défaut « Non ») ; les refus sont renvoyés à l'IA les semaines suivantes.
-6. Scénarios de test avec la vraie API : `GEMINI_API_KEY=… npm run eval:ia` → `scripts/eval-ia-rapport.md`.
+Gemini a été branché puis **retiré** (modèles gratuits saturés, quotas quotidiens trop faibles).
+L'IA passe désormais par Claude en copier-coller (§8) : gratuit avec le compte Claude, aucune clé dans l'app.
+Les règles de l'app (équilibre §6, progression §7) restent déterministes ; tout programme reçu est vérifié avant usage.
 
 ## 12. Plus tard (hors V1)
 

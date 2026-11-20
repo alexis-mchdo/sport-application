@@ -109,7 +109,7 @@ export interface BilanSemaine {
   fin: string
   /** Changements de charge acceptés */
   decisions: DecisionProgression[]
-  /** Propositions de l'IA acceptées / refusées (descriptions), renvoyées à l'IA pour qu'elle apprenne tes préférences */
+  /** Ancienne intégration Gemini (retirée) : présent seulement dans d'anciennes données */
   ia?: { acceptees: string[]; refusees: string[] }
 }
 

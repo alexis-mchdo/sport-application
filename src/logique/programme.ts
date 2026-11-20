@@ -62,3 +62,23 @@ export function resumePrescription(p: ExoPrevu, e: Exercice | undefined) {
     p.poidsKg > 0 ? `${p.poidsKg.toLocaleString('fr-FR')} kg` : e?.equipement === 'poids_du_corps' ? 'poids du corps' : 'poids à régler'
   return `${p.series} × ${p.reps} · ${poids}`
 }
+
+const normaliserNom = (n: string) => n.trim().toLowerCase()
+
+/**
+ * Reprend les identifiants des séances de l'ancien programme pour les séances du nouveau qui portent
+ * le même nom : l'historique et les règles de progression continuent de les reconnaître.
+ */
+export function conserverIdsSeances(ancien: Programme, nouveau: Programme): Programme {
+  const libres = new Map<string, string[]>()
+  for (const s of ancien.seances) libres.set(normaliserNom(s.nom), [...(libres.get(normaliserNom(s.nom)) ?? []), s.id])
+  return {
+    ...nouveau,
+    id: ancien.id,
+    actif: ancien.actif,
+    seances: nouveau.seances.map((s) => {
+      const id = libres.get(normaliserNom(s.nom))?.shift()
+      return id ? { ...s, id } : s
+    }),
+  }
+}
