@@ -1,6 +1,6 @@
 # Document de conception — App de musculation
 
-Statut : **validé**, en cours de construction (étapes 1 à 5 faites + IA branchée). Les changements importants sont discutés avant d'être codés.
+Statut : **validé**, en cours de construction (étapes 1 à 6 faites + IA branchée). Les changements importants sont discutés avant d'être codés.
 
 ## 1. Objectif
 
@@ -30,7 +30,7 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 - **Tailwind CSS** : style sombre et épuré
 - **Dexie** : base de données locale (IndexedDB)
 - **vite-plugin-pwa** : installation sur l'écran d'accueil + fonctionnement hors ligne
-- **Recharts** : graphiques des stats
+- **Graphiques faits main** (SVG) : légers, sans bibliothèque
 - **Vitest** : tests des algorithmes (équilibre, progression)
 - **GitHub Actions** : chaque mise à jour du code est publiée automatiquement sur GitHub Pages
 
@@ -67,11 +67,14 @@ Principes : **épurée**, **saisie ultra-rapide** (je prépare une fois, je vali
 | 6 | PPL × 2 |
 
 ### 4.3 Stats
-- Par exercice : courbe du poids et du **1RM estimé** (formule d'Epley : `poids × (1 + reps / 30)`).
-- **Records personnels** récents.
-- **Volume par muscle** sur les 4 à 8 dernières semaines.
-- **Régularité** : séances par semaine, semaines consécutives.
-- **Historique** : calendrier, tap sur un jour → détail de la séance.
+Deux vues : **Progression** et **Historique**.
+- Tuiles : séances au total, semaines d'affilée, charge de la semaine (vs la précédente).
+- Par exercice : courbe du **1RM estimé** (formule d'Epley : `poids × (1 + reps / 30)`), meilleure série de chaque séance ;
+  au poids du corps : répétitions max. Le doigt fait glisser un réticule avec le détail.
+- **Records** : meilleure performance par exercice, la plus récente d'abord (« Nouveau » si cette semaine).
+- **Séries par muscle et par semaine** : carte de chaleur sur les 8 dernières semaines, valeur dans chaque case.
+- **Séances par semaine** : colonnes avec la ligne d'objectif du programme.
+- **Historique** : séances regroupées par semaine d'entraînement, tap → détail de la séance.
 
 ### 4.4 Réglages
 - Mode de planning : jour fixe / ordre du programme.

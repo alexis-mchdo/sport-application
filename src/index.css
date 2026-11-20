@@ -8,6 +8,15 @@
   --color-texte: #f4f4f5;
   --color-discret: #8b8b98;
   --color-accent: #a3e635;
+
+  /* Graphiques (validés avec le script dataviz sur la surface #16161d) */
+  --color-serie: #65a30d; /* marques : courbes, colonnes */
+  --color-chaleur-1: #2b3a14; /* échelle séquentielle, peu → beaucoup */
+  --color-chaleur-2: #3f5a17;
+  --color-chaleur-3: #56801a;
+  --color-chaleur-4: #6fa51b;
+  --color-chaleur-5: #8cc824;
+  --color-chaleur-6: #a3e635;
 }
 
 html,
