@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ErreurIA, appelerGemini } from './gemini'
+import { ErreurIA, MODELE_SECOURS, appelerGemini, appelerGeminiAvecSecours } from './gemini'
 
 const appel = () => appelerGemini({ cle: 'CLE', modele: 'gemini-flash-latest', instructions: 'i', contexte: 'c', schema: {} })
 const repondre = (statut: number, corps: unknown) =>
@@ -59,6 +59,27 @@ describe('client Gemini', () => {
     expect(((await resultat) as Error).message).toMatch(/indisponible/)
     expect(fetchMock).toHaveBeenCalledTimes(3)
     vi.useRealTimers()
+  })
+
+  it('bascule sur le modèle de secours quand le modèle principal est saturé', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] })))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await appelerGeminiAvecSecours({ cle: 'CLE', modele: 'gemini-flash-latest', instructions: 'i', contexte: 'c', schema: {} })
+    expect(r).toEqual({ donnees: { ok: true }, modele: MODELE_SECOURS })
+    expect(fetchMock).toHaveBeenCalledTimes(2) // pas de relance sur le principal : on bascule tout de suite
+    expect(fetchMock.mock.calls[1][0]).toContain(`/${MODELE_SECOURS}:generateContent`)
+  })
+
+  it('ne bascule pas pour une clé refusée', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: { details: [{ reason: 'API_KEY_INVALID' }] } }), { status: 400 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(appelerGeminiAvecSecours({ cle: 'X', modele: 'gemini-flash-latest', instructions: 'i', contexte: 'c', schema: {} })).rejects.toThrow(
+      /Clé IA refusée/,
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('ignore les parties « pensée »', async () => {

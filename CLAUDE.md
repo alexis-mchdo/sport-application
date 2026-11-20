@@ -16,7 +16,7 @@ npm run build    # type-check (tsc -b) + production build into dist/
 npm run lint     # oxlint
 npm test         # vitest (all tests)
 npx vitest run src/rappel.test.ts   # a single test file
-GEMINI_API_KEY=… npm run eval:ia   # live AI scenarios (skipped without key) → scripts/eval-ia-rapport.md
+GEMINI_API_KEY=… npm run eval:ia   # live AI scenarios (skipped without key) → scripts/eval-ia-rapport-normale.md (burns free daily quota)
 npm run icons    # regenerate favicon / PWA / apple-touch icons from public/logo.svg
 ```
 
@@ -37,4 +37,4 @@ npm run icons    # regenerate favicon / PWA / apple-touch icons from public/logo
 - Deployment: pushing to `main` runs `.github/workflows/deploy.yml` (lint → build → GitHub Pages). Repo is public; only code is published, never user data.
 - **Dark theme only.** Design for one-handed iPhone use: respect `env(safe-area-inset-*)`, big tap targets, minimal typing (tap to validate a set, long-press for +/−).
 - iOS Safari PWA limits shape the design: **no rest timer** (removed on purpose — unreliable in background), no vibration API. Data can be wiped with Safari data, so export/import JSON is a core feature.
-- AI = Gemini free tier, called straight from the browser (`src/ia/gemini.ts`, REST `v1beta/models/{model}:generateContent`, JSON schema output). The owner refuses any paid service. Prompts, schemas and — most importantly — the safety validation of every AI answer live in `src/logique/ia.ts` (`verifierAnalyse`, `verifierProgrammeIA`): never apply AI output without going through them. The API key is the `cleIA` row of `reglages`, listed in `CLES_LOCALES` so backups never export it. Weekly analysis is cached in the `analyseIA` row until the week is closed; accepted/refused descriptions are stored on the `BilanSemaine` and fed back to the AI. Balance warnings and rule-based load progression stay deterministic (not AI).
+- AI = Gemini free tier, called straight from the browser (`src/ia/gemini.ts`, REST `v1beta/models/{model}:generateContent`, JSON schema output). Free Flash models are often saturated (503) and daily quotas are tiny (429): app calls go through `appelerGeminiAvecSecours`, which tries the chosen model once then falls back to `MODELE_SECOURS` (`gemini-flash-lite-latest`). The owner refuses any paid service. Prompts, schemas and — most importantly — the safety validation of every AI answer live in `src/logique/ia.ts` (`verifierAnalyse`, `verifierProgrammeIA`): never apply AI output without going through them. The API key is the `cleIA` row of `reglages`, listed in `CLES_LOCALES` so backups never export it. Weekly analysis is cached in the `analyseIA` row until the week is closed; accepted/refused descriptions are stored on the `BilanSemaine` and fed back to the AI. Balance warnings and rule-based load progression stay deterministic (not AI).

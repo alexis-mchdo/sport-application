@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { BIBLIOTHEQUE } from '../src/data/bibliotheque'
 import { NOM_MUSCLE } from '../src/data/muscles'
 import { MODELES, creerProgrammeDepuisModele } from '../src/data/modeles'
-import { appelerGemini, type NiveauReflexion } from '../src/ia/gemini'
+import { appelerGeminiAvecSecours, type NiveauReflexion } from '../src/ia/gemini'
 import { alertes, indexer } from '../src/logique/equilibre'
 import {
   INSTRUCTIONS_BILAN,
@@ -37,13 +37,16 @@ const exos = indexer(BIBLIOTHEQUE)
 const ecrire = (t: string) => appendFileSync(RAPPORT, `${t}\n`)
 
 /** Appelle l'IA ; en cas d'erreur, l'écrit dans le rapport (avec la durée) avant de la relancer. */
-async function appelerOuNoter(nom: string, appel: () => Promise<unknown>): Promise<{ brut: unknown; secondes: number }> {
+async function appelerOuNoter(
+  nom: string,
+  appel: () => Promise<{ donnees: unknown; modele: string }>,
+): Promise<{ brut: unknown; secondes: string }> {
   const debut = Date.now()
   try {
-    const brut = await appel()
-    const secondes = Math.round((Date.now() - debut) / 1000)
-    totalSecondes += secondes
-    return { brut, secondes }
+    const { donnees, modele } = await appel()
+    const s = Math.round((Date.now() - debut) / 1000)
+    totalSecondes += s
+    return { brut: donnees, secondes: `${s} s · ${modele === MODELE ? modele : `secours ${modele}`}` }
   } catch (e) {
     ecrire(`\n## ${nom}\n❌ **Erreur après ${Math.round((Date.now() - debut) / 1000)} s** : ${(e as Error).message}`)
     throw e
@@ -135,10 +138,10 @@ async function bilan(nom: string, profil: Profil, p: Programme, historique: Sean
     refusRecents: [],
   })
   const { brut, secondes } = await appelerOuNoter(nom, () =>
-    appelerGemini({ cle: CLE!, modele: MODELE, reflexion: REFLEXION, instructions: INSTRUCTIONS_BILAN, contexte, schema: SCHEMA_BILAN }),
+    appelerGeminiAvecSecours({ cle: CLE!, modele: MODELE, reflexion: REFLEXION, instructions: INSTRUCTIONS_BILAN, contexte, schema: SCHEMA_BILAN }),
   )
   const a = verifierAnalyse(brut, p, BIBLIOTHEQUE, profil)
-  ecrire(`\n## ${nom}\n_${secondes} s · contexte ${contexte.length} caractères_\n`)
+  ecrire(`\n## ${nom}\n_${secondes} · contexte ${contexte.length} caractères_\n`)
   ecrire(`**Conseils**\n${a.conseils.map((c) => `- ${c}`).join('\n') || '- (aucun)'}`)
   ecrire(`\n**Propositions retenues**\n${a.propositions.map((x) => `- ${x.description} — ${x.raison}`).join('\n') || '- (aucune)'}`)
   ecrire(`\n**Écartées par l'app**\n${a.rejets.map((r) => `- ${r}`).join('\n') || '- (aucune)'}`)
@@ -147,7 +150,7 @@ async function bilan(nom: string, profil: Profil, p: Programme, historique: Sean
 
 async function creation(nom: string, profil: Profil, nb: number) {
   const { brut, secondes } = await appelerOuNoter(nom, () =>
-    appelerGemini({
+    appelerGeminiAvecSecours({
       cle: CLE!,
       modele: MODELE,
       reflexion: REFLEXION,
@@ -158,7 +161,7 @@ async function creation(nom: string, profil: Profil, nb: number) {
   )
   const r = verifierProgrammeIA(brut, BIBLIOTHEQUE, profil, nb)
   const al = alertes(r.programme, BIBLIOTHEQUE, 'jourFixe')
-  ecrire(`\n## ${nom}\n_${secondes} s_\n`)
+  ecrire(`\n## ${nom}\n_${secondes}_\n`)
   ecrire(`**${r.programme.nom}** — ${r.explication}\n`)
   for (const s of r.programme.seances) {
     ecrire(`- **${s.nom}** (jour ${s.jourSemaine})`)

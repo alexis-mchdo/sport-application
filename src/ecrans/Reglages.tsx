@@ -54,8 +54,12 @@ export function Reglages() {
     if (!reglages.cleIA) return
     setOccupe(true)
     try {
-      await testerConnexion(reglages.cleIA, reglages.modeleIA)
-      alert("✓ L'IA répond correctement.")
+      const modele = await testerConnexion(reglages.cleIA, reglages.modeleIA)
+      alert(
+        modele === reglages.modeleIA
+          ? "✓ L'IA répond correctement."
+          : `✓ L'IA répond, via le modèle de secours (${modele}) : ${reglages.modeleIA} est saturé ou indisponible en ce moment.`,
+      )
     } catch (e) {
       alert(e instanceof ErreurIA ? e.message : `Erreur : ${(e as Error).message}`)
     } finally {

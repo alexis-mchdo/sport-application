@@ -1,7 +1,17 @@
 // Appel direct à l'API Gemini depuis l'iPhone (pas de serveur).
 // La clé est saisie dans Réglages → IA et ne quitte jamais l'appareil (exclue des exports).
 
-export class ErreurIA extends Error {}
+export class ErreurIA extends Error {
+  /** true si un autre modèle a des chances de répondre (surcharge, modèle indisponible, délai dépassé) */
+  readonly basculer: boolean
+  constructor(message: string, basculer = false) {
+    super(message)
+    this.basculer = basculer
+  }
+}
+
+/** Modèle de secours, plus léger : répond quand les modèles Flash gratuits sont saturés. */
+export const MODELE_SECOURS = 'gemini-flash-lite-latest'
 
 /** Niveau de réflexion Gemini (modèles 3 et +). `undefined` = réglage par défaut du modèle. */
 export type NiveauReflexion = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH'
@@ -24,10 +34,18 @@ function messageErreur(statut: number, corps: ReponseGemini | null): string {
   const raison = corps?.error?.details?.map((d) => d.reason).join(' ') ?? ''
   if (raison.includes('API_KEY_INVALID') || statut === 401 || statut === 403)
     return 'Clé IA refusée par Google. Vérifie-la dans Réglages → IA.'
-  if (statut === 404) return 'Modèle IA introuvable. Vérifie son nom dans Réglages → IA.'
-  if (statut === 429) return "Quota gratuit de l'IA atteint pour le moment. Réessaie plus tard."
+  if (statut === 404) return "Modèle IA introuvable ou plus disponible. Vérifie son nom dans Réglages → IA."
+  if (statut === 429) return "Quota gratuit de l'IA atteint pour aujourd'hui. Réessaie plus tard (il se recharge chaque jour)."
   if (statut >= 500) return "Le service d'IA est indisponible. Réessaie dans quelques minutes."
   return `Erreur de l'IA (${statut})${corps?.error?.message ? ` : ${corps.error.message}` : ''}`
+}
+
+interface ParametresAppel {
+  cle: string
+  instructions: string
+  contexte: string
+  schema: object
+  reflexion?: NiveauReflexion
 }
 
 /**
@@ -41,14 +59,8 @@ export async function appelerGemini({
   contexte,
   schema,
   reflexion,
-}: {
-  cle: string
-  modele: string
-  instructions: string
-  contexte: string
-  schema: object
-  reflexion?: NiveauReflexion
-}): Promise<unknown> {
+  relances = true,
+}: ParametresAppel & { modele: string; relances?: boolean }): Promise<unknown> {
   const corps = JSON.stringify({
     systemInstruction: { parts: [{ text: instructions }] },
     contents: [{ role: 'user', parts: [{ text: contexte }] }],
@@ -73,7 +85,7 @@ export async function appelerGemini({
     try {
       return await envoyer(avecEnTete)
     } catch (e) {
-      if ((e as Error).name === 'TimeoutError') throw new ErreurIA("L'IA met trop de temps à répondre. Réessaie.")
+      if ((e as Error).name === 'TimeoutError') throw new ErreurIA("L'IA met trop de temps à répondre. Réessaie.", true)
       if (!avecEnTete) throw new ErreurIA("Impossible de joindre l'IA. Vérifie ta connexion internet.")
       // Si l'en-tête est refusé par le navigateur, on réessaie avec la clé dans l'adresse (HTTPS).
       avecEnTete = false
@@ -83,7 +95,7 @@ export async function appelerGemini({
 
   let reponse = await envoyerUneFois()
   // Surcharge passagère chez Google : on relance automatiquement avant d'afficher une erreur
-  for (const attente of ATTENTES_RELANCE_MS) {
+  for (const attente of relances ? ATTENTES_RELANCE_MS : []) {
     if (!SURCHARGE.includes(reponse.status)) break
     await attendre(attente)
     reponse = await envoyerUneFois()
@@ -93,7 +105,9 @@ export async function appelerGemini({
   // Modèle qui ne gère pas le niveau de réflexion : on réessaie avec son réglage par défaut
   if (reponse.status === 400 && reflexion && /think/i.test(donnees?.error?.message ?? ''))
     return appelerGemini({ cle, modele, instructions, contexte, schema })
-  if (!reponse.ok) throw new ErreurIA(messageErreur(reponse.status, donnees))
+  if (!reponse.ok)
+    // Surcharge, modèle indisponible ou quota de ce modèle épuisé : un autre modèle (quota séparé) peut répondre
+    throw new ErreurIA(messageErreur(reponse.status, donnees), SURCHARGE.includes(reponse.status) || [404, 429].includes(reponse.status))
 
   const candidat = donnees?.candidates?.[0]
   if (!candidat) throw new ErreurIA(`L'IA n'a pas répondu${donnees?.promptFeedback?.blockReason ? ' (demande bloquée)' : ''}. Réessaie.`)
@@ -109,14 +123,29 @@ export async function appelerGemini({
   }
 }
 
-/** Petit appel pour vérifier que la clé et le modèle fonctionnent. */
-export async function testerConnexion(cle: string, modele: string): Promise<void> {
-  const r = (await appelerGemini({
+/**
+ * Essaie le modèle choisi (une seule fois), puis bascule sur le modèle de secours s'il est saturé ou indisponible.
+ * Renvoie la réponse et le modèle qui a répondu.
+ */
+export async function appelerGeminiAvecSecours(p: ParametresAppel & { modele: string }): Promise<{ donnees: unknown; modele: string }> {
+  if (p.modele === MODELE_SECOURS) return { donnees: await appelerGemini(p), modele: p.modele }
+  try {
+    return { donnees: await appelerGemini({ ...p, relances: false }), modele: p.modele }
+  } catch (e) {
+    if (!(e instanceof ErreurIA) || !e.basculer) throw e
+    return { donnees: await appelerGemini({ ...p, modele: MODELE_SECOURS }), modele: MODELE_SECOURS }
+  }
+}
+
+/** Petit appel pour vérifier que la clé fonctionne. Renvoie le modèle qui a répondu. */
+export async function testerConnexion(cle: string, modele: string): Promise<string> {
+  const r = await appelerGeminiAvecSecours({
     cle,
     modele,
     instructions: 'Réponds uniquement avec le JSON demandé.',
     contexte: 'Renvoie {"ok": true}.',
     schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] },
-  })) as { ok?: boolean }
-  if (r?.ok !== true) throw new ErreurIA("L'IA a répondu, mais pas comme prévu.")
+  })
+  if ((r.donnees as { ok?: boolean })?.ok !== true) throw new ErreurIA("L'IA a répondu, mais pas comme prévu.")
+  return r.modele
 }

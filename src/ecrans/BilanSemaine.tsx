@@ -211,6 +211,9 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
 
         {analyseIA && (
           <>
+            {analyseIA.modele && analyseIA.modele !== reglages.modeleIA && (
+              <p className="px-4 pt-3 text-xs text-discret">Analyse faite par le modèle de secours ({analyseIA.modele}) : le modèle principal était saturé.</p>
+            )}
             {analyseIA.analyse.conseils.map((c, i) => (
               <p key={i} className="px-4 py-3 text-sm">
                 💡 {c}

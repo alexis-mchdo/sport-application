@@ -1,5 +1,5 @@
 import { db, lireProfil, lireReglages } from './db'
-import { appelerGemini, ErreurIA } from './ia/gemini'
+import { appelerGeminiAvecSecours, ErreurIA } from './ia/gemini'
 import {
   INSTRUCTIONS_BILAN,
   INSTRUCTIONS_CREATION,
@@ -22,6 +22,8 @@ export interface AnalyseSemaine {
   analyse: AnalyseIA
   /** Identifiants des propositions acceptées (les autres sont refusées) */
   acceptees: string[]
+  /** Modèle qui a répondu (le modèle de secours si le principal était saturé) */
+  modele?: string
 }
 
 const CLE_ANALYSE = 'analyseIA'
@@ -62,7 +64,7 @@ export async function analyserSemaine(): Promise<void> {
     .filter((b) => Number(b.semaine) >= numero - 3)
     .flatMap((b) => b.ia?.refusees ?? [])
 
-  const reponse = await appelerGemini({
+  const { donnees: reponse, modele: modeleUtilise } = await appelerGeminiAvecSecours({
     cle,
     modele,
     instructions: INSTRUCTIONS_BILAN,
@@ -78,7 +80,7 @@ export async function analyserSemaine(): Promise<void> {
     schema: SCHEMA_BILAN,
   })
   const analyse = verifierAnalyse(reponse, programme, exercices, profil)
-  const valeur: AnalyseSemaine = { semaine: numero, date: new Date().toISOString(), analyse, acceptees: [] }
+  const valeur: AnalyseSemaine = { semaine: numero, date: new Date().toISOString(), analyse, acceptees: [], modele: modeleUtilise }
   await db.reglages.put({ cle: CLE_ANALYSE, valeur })
 }
 
@@ -96,15 +98,15 @@ export async function effacerAnalyseSemaine() {
   await db.reglages.delete(CLE_ANALYSE)
 }
 
-export async function creerProgrammeAvecIA(nbSeances: number): Promise<ProgrammeIA> {
+export async function creerProgrammeAvecIA(nbSeances: number): Promise<ProgrammeIA & { modele: string }> {
   const { cle, modele } = await parametresIA()
   const [profil, exercices] = await Promise.all([lireProfil(), db.exercices.toArray()])
-  const reponse = await appelerGemini({
+  const { donnees: reponse, modele: modeleUtilise } = await appelerGeminiAvecSecours({
     cle,
     modele,
     instructions: INSTRUCTIONS_CREATION,
     contexte: contexteCreation(profil, exercices, nbSeances),
     schema: SCHEMA_PROGRAMME,
   })
-  return verifierProgrammeIA(reponse, exercices, profil, nbSeances)
+  return { ...verifierProgrammeIA(reponse, exercices, profil, nbSeances), modele: modeleUtilise }
 }

@@ -6,7 +6,7 @@ import { JaugeEquilibre } from '../composants/JaugeEquilibre'
 import { Bouton, Entete, Section, Segmente } from '../composants/ui'
 import { NOM_JOUR_COURT } from '../data/jours'
 import { db, lireProfil, lireReglages } from '../db'
-import { ErreurIA } from '../ia/gemini'
+import { ErreurIA, MODELE_SECOURS } from '../ia/gemini'
 import { indexer } from '../logique/equilibre'
 import type { ProgrammeIA } from '../logique/ia'
 import { completion } from '../logique/profil'
@@ -20,7 +20,7 @@ export function CreationIA({ retour, apresCreation }: { retour: () => void; apre
   const reglages = useLiveQuery(lireReglages, [])
   const exercices = useLiveQuery(() => db.exercices.toArray(), [])
   const [nb, setNb] = useState<(typeof NB)[number] | null>(null)
-  const [resultat, setResultat] = useState<ProgrammeIA | null>(null)
+  const [resultat, setResultat] = useState<(ProgrammeIA & { modele: string }) | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -80,6 +80,9 @@ export function CreationIA({ retour, apresCreation }: { retour: () => void; apre
           }}
         />
 
+        {resultat.modele === MODELE_SECOURS && reglages.modeleIA !== MODELE_SECOURS && (
+          <p className="mt-3 px-1 text-xs text-discret">Créé par le modèle de secours ({MODELE_SECOURS}) : le modèle principal était saturé.</p>
+        )}
         {resultat.rejets.length > 0 && (
           <p className="mt-3 px-1 text-xs text-discret">
             {resultat.rejets.length} élément{resultat.rejets.length > 1 ? 's' : ''} écarté{resultat.rejets.length > 1 ? 's' : ''} par l'app
