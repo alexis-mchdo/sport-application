@@ -98,7 +98,8 @@ function semaine(
   options: { ressenti: number; douleurs?: SeanceRealisee['douleurs']; echec?: (id: string) => number[] | undefined; note?: string },
 ): SeanceRealisee[] {
   return p.seances.map((s, i) => {
-    const r = demarrerSeance(s, new Date(2026, 10, 2 + 7 * (numero - 1) + i), numero)
+    // Chaque séance à son jour prévu (lundi 2 novembre 2026 = semaine 1)
+    const r = demarrerSeance(s, new Date(2026, 10, 2 + 7 * (numero - 1) + ((s.jourSemaine ?? i + 1) - 1), 18), numero)
     r.enCours = false
     r.ressenti = options.ressenti
     r.douleurs = options.douleurs

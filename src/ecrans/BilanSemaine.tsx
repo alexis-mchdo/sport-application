@@ -7,6 +7,7 @@ import { RESSENTIS } from '../data/ressentis'
 import { db, lireReglages } from '../db'
 import { ErreurIA } from '../ia/gemini'
 import { NOM_ZONE } from '../logique/profil'
+import { iaRemplaceRegle } from '../logique/ia'
 import { proposerProgression, type Proposition } from '../logique/progression'
 import { bilanSeance } from '../logique/seance'
 import type { DecisionProgression, ZoneCorps } from '../types'
@@ -56,8 +57,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
   const propositionsIA = analyseIA?.analyse.propositions ?? []
   const accepteesIA = propositionsIA.filter((p) => analyseIA?.acceptees.includes(p.id))
   const refuseesIA = propositionsIA.filter((p) => !analyseIA?.acceptees.includes(p.id))
-  // Une proposition IA acceptée sur un exercice remplace la proposition de l'app pour cet exercice
-  const toucheParIA = new Set(accepteesIA.map((p) => `${p.seanceId}:${p.exerciceId}`))
+  const remplaceeParIA = (p: Proposition) => iaRemplaceRegle(p.seanceId, p.exerciceId, accepteesIA)
 
   const lancerAnalyse = async () => {
     setIaEnCours(true)
@@ -81,7 +81,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
     if (!confirm(message)) return
     setEnvoi(true)
     const decisions: DecisionProgression[] = changements
-      .filter((p) => !refus.has(cle(p)) && !toucheParIA.has(cle(p)))
+      .filter((p) => !refus.has(cle(p)) && !remplaceeParIA(p))
       .map((p) => ({
         seanceId: p.seanceId,
         exerciceId: p.exerciceId,
@@ -142,7 +142,7 @@ export function BilanSemaine({ retour, apresCloture }: { retour: () => void; apr
                 {p.seanceNom} · {p.raison}
               </p>
             </div>
-            <div className={`w-28 shrink-0 ${toucheParIA.has(cle(p)) ? 'opacity-30' : ''}`}>
+            <div className={`w-28 shrink-0 ${remplaceeParIA(p) ? 'opacity-30' : ''}`}>
               <Segmente
                 options={[
                   { valeur: 'oui', libelle: 'Oui' },

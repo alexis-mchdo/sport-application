@@ -129,4 +129,6 @@ export const BIBLIOTHEQUE: Exercice[] = [
   exo('mollets-debout', 'Mollets debout (machine)', 'isolation', 'machine', ['mollets']),
   exo('mollets-assis', 'Mollets assis (machine)', 'isolation', 'machine', ['mollets']),
   exo('mollets-presse', 'Mollets à la presse', 'isolation', 'machine', ['mollets']),
+  exo('mollets-halteres', 'Mollets debout (haltères)', 'isolation', 'halteres', ['mollets']),
+  exo('mollets-unilateral', 'Mollets sur une jambe (marche)', 'isolation', 'poids_du_corps', ['mollets']),
 ]

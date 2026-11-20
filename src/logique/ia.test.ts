@@ -9,6 +9,7 @@ import {
   contexteBilan,
   contexteCreation,
   exercicesAutorises,
+  iaRemplaceRegle,
   verifierAnalyse,
   verifierProgrammeIA,
   zoneTouchee,
@@ -130,6 +131,22 @@ describe('vérification du bilan IA', () => {
     expect(upperA.exercices.map((e) => e.exerciceId)).toContain('curl-marteau')
     expect(upperA.exercices.at(-1)).toMatchObject({ exerciceId: 'face-pull', series: 3, reps: 15 })
     expect(p.seances[0].exercices[0].poidsKg).toBe(80)
+  })
+})
+
+describe('IA et règles de l’app sur le même exercice', () => {
+  it('une baisse de séries par l’IA s’ajoute à la baisse de charge de l’app', () => {
+    const p = programme()
+    const [series] = analyser([{ type: 'charge', seance: 'S1', exercice: 'developpe-couche-barre', series: 3, raison: 'x' }], p).propositions
+    expect(iaRemplaceRegle(series.seanceId, 'developpe-couche-barre', [series])).toBe(false)
+    // Règle appliquée d'abord (80 → 72,5 kg), puis l'IA (4 → 3 séries) : les deux sont gardées
+    p.seances[0].exercices[0].poidsKg = 72.5
+    expect(appliquerPropositionsIA(p, [series], exos).seances[0].exercices[0]).toMatchObject({ poidsKg: 72.5, series: 3 })
+  })
+
+  it('une charge proposée par l’IA remplace celle de l’app', () => {
+    const [charge] = analyser([{ type: 'charge', seance: 'S1', exercice: 'developpe-couche-barre', poidsKg: 75, raison: 'x' }]).propositions
+    expect(iaRemplaceRegle(charge.seanceId, 'developpe-couche-barre', [charge])).toBe(true)
   })
 })
 

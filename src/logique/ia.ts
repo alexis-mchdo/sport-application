@@ -324,6 +324,17 @@ function nbManquants(programme: Programme, exos: Map<string, Exercice>) {
   return MUSCLES.filter((m) => statut(m, vol[m]) === 'manquant').length
 }
 
+/**
+ * Une proposition IA acceptée remplace la proposition de charge de l'app sur le même exercice
+ * seulement si elle touche aussi au poids ou aux reps (ou remplace / retire l'exercice).
+ * Sinon les deux s'additionnent : par ex. règle −10 % + IA 4 → 3 séries.
+ */
+export function iaRemplaceRegle(seanceId: string, exerciceId: string, accepteesIA: PropositionIA[]): boolean {
+  return accepteesIA.some(
+    (p) => p.seanceId === seanceId && p.exerciceId === exerciceId && (p.type !== 'charge' || p.poidsKg !== undefined || p.reps !== undefined),
+  )
+}
+
 /** Applique des propositions validées à une copie du programme. */
 export function appliquerPropositionsIA(programme: Programme, propositions: PropositionIA[], exos: Map<string, Exercice>): Programme {
   const p: Programme = structuredClone(programme)
